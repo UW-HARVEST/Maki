@@ -36,3 +36,7 @@ sudo apt install -y texinfo
 sudo apt install -y unzip
 sudo apt install -y wget
 sudo apt install -y xaw3dg-dev
+
+mkdir build
+cd build
+cmake ..
