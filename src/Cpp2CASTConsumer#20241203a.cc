@@ -402,18 +402,16 @@ if (L.isValid())
     struct ArgInfo
     {
         std::string Name;
-        std::string ASTKind;
         std::string Type;
         std::string ActualArgLocBegin;
         std::string ActualArgLocEnd;
-        bool IsLValue = false;
-        bool ExpandedWhereModifiableValueRequired = false;
-        bool ExpandedWhereAddressableValueRequired = false;
         // std::string FormalParamLocBegin;
         // std::string FormalParamLocEnd;
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(ArgInfo, Name, ASTKind, Type, ActualArgLocBegin, ActualArgLocEnd, IsLValue, ExpandedWhereModifiableValueRequired, ExpandedWhereAddressableValueRequired);
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(ArgInfo, Name, Type, ActualArgLocBegin, ActualArgLocEnd)
+        // NLOHMANN_DEFINE_TYPE_INTRUSIVE(ArgInfo, Name, Type, ActualArgLocBegin, ActualArgLocEnd, FormalParamLocBegin, FormalParamLocEnd)
     };
+    // NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ArgInfo, Name, Type, ActualArgLocBegin, ActualArgLocEnd)
 
     void Cpp2CASTConsumer::HandleTranslationUnit(clang::ASTContext &Ctx)
     {
@@ -642,7 +640,6 @@ if (L.isValid())
                 TypeSignature;
 
             std::string ReturnType;
-            bool IsLValue = false;
             std::vector<ArgInfo> Args;
 
             // Integer properties
@@ -862,9 +859,7 @@ if (L.isValid())
                 debug("Done checking if arguments are all aligned");
 
                 std::set<const clang::Stmt *> StmtsExpandedFromArguments;
-                std::map<std::string, std::set<const clang::Stmt *>> StmtsExpandedFromCertainArguments;
                 // Semantic properties of the macro's arguments
-                std::function<bool(const clang::Stmt *, std::string)> ExpandedFromCertainArgument;
                 if (HasAlignedArguments)
                 {
                     debug("Collecting argument subtrees");
@@ -874,7 +869,6 @@ if (L.isValid())
                         {
                             auto STs = subtrees(Root.ST);
                             StmtsExpandedFromArguments.insert(STs.begin(), STs.end());
-                            StmtsExpandedFromCertainArguments[Arg.Name.str()].insert(STs.begin(), STs.end());
                         }
                     }
                     debug("Done collecting argument subtrees");
@@ -883,11 +877,6 @@ if (L.isValid())
                         [&StmtsExpandedFromArguments](const clang::Stmt *St)
                     { return StmtsExpandedFromArguments.find(St) !=
                              StmtsExpandedFromArguments.end(); };
-
-                    ExpandedFromCertainArgument =
-                        [&StmtsExpandedFromCertainArguments](const clang::Stmt *St, std::string ArgName)
-                    { return StmtsExpandedFromCertainArguments[ArgName].find(St) !=
-                             StmtsExpandedFromCertainArguments[ArgName].end(); };
 
                     DoesAnyArgumentHaveSideEffects = std::any_of(
                         SideEffectExprs.begin(),
@@ -1111,8 +1100,6 @@ if (L.isValid())
                         // Whether this expression is an integral
                         // constant expression
                         IsExpansionICE = E->isIntegerConstantExpr(Ctx);
-
-                        IsLValue = E->isLValue();
                     }
 
                     // Argument type information
@@ -1131,7 +1118,6 @@ if (L.isValid())
                     {
                         Args.push_back(ArgInfo {
                             .Name = Arg.Name.str(),
-                            .ASTKind = "<Null>",
                             .Type = "<Null>",
                             .ActualArgLocBegin = InvocationFilename + ":" + tryGetLineColumn(SM, Arg.TokensWithTail.front().getLocation()).second,
                             .ActualArgLocEnd = InvocationFilename + ":" + tryGetLineColumn(SM, Arg.TokensWithTail.back().getEndLoc()).second
@@ -1177,58 +1163,31 @@ if (L.isValid())
                             hasTypeDefinedAfter(QT.getTypePtrOrNull(), Ctx, DefLoc);
 
                         TypeSignature += ArgTypeStr;
-
+                        // ArgTypes.push_back(ArgTypeStr);
+                        // ParamNames.push_back(Arg.Name.str());
+                        // Args.push_back(ArgInfo {
+                        //     .Name = Arg.Name.str(),
+                        //     .Type = ArgTypeStr,
+                        //     // .ActualArgLocBegin = tryGetFullSourceLoc(SM, Arg.Tokens.front().getLocation()).second,
+                        //     // .ActualArgLocEnd = tryGetFullSourceLoc(SM, Arg.Tokens.back().getEndLoc()).second
+                        //     .ActualArgLocBegin = InvocationFilename + ":" + tryGetLineColumn(SM, Arg.Tokens.front().getLocation()).second,
+                        //     .ActualArgLocEnd = InvocationFilename + ":" + tryGetLineColumn(SM, Arg.Tokens.back().getEndLoc()).second
+                        // });
                         Args.back().Type = ArgTypeStr;
-
-                        bool IsThisArgumentExpandedWhereModifiableValueRequired = std::any_of(
-                            SideEffectExprs.begin(),
-                            SideEffectExprs.end(),
-                            [&ExpandedFromCertainArgument, &Arg](const clang::Expr *E)
-                            {
-                                // Only consider side-effect expressions which were
-                                // not expanded from an argument of the same macro
-                                if (!ExpandedFromCertainArgument(E, Arg.Name.str()))
-                                {
-                                    clang::Expr *LHS = nullptr;
-                                    auto B = clang::dyn_cast<clang::BinaryOperator>(E);
-                                    auto U = clang::dyn_cast<clang::UnaryOperator>(E);
-                                    if (B)
-                                        LHS = B->getLHS();
-                                    else if (U)
-                                        LHS = U->getSubExpr();
-                                    LHS = skipImplicitAndParens(LHS);
-                                    return ExpandedFromCertainArgument(LHS, Arg.Name.str());
-                                }
-                                return false;
-                            }
-                        );
-
-                        bool IsThisArgumentExpandedWhereAddressableValueRequired = std::any_of(
-                            AddressOfExprs.begin(),
-                            AddressOfExprs.end(),
-                            [&ExpandedFromCertainArgument, &Arg](const clang::UnaryOperator *U)
-                            {
-                                // Only consider address of expressions which were
-                                // not expanded from an argument of the same macro
-                                if (!ExpandedFromCertainArgument(U, Arg.Name.str()))
-                                {
-                                    auto Operand = U->getSubExpr();
-                                    Operand = skipImplicitAndParens(Operand);
-                                    return ExpandedFromCertainArgument(Operand, Arg.Name.str());
-                                }
-                                return false;
-                            }
-                        );
-
-                        Args.back().IsLValue = E->isLValue();
-                        Args.back().ASTKind = "Expr";
-                        Args.back().ExpandedWhereModifiableValueRequired = IsThisArgumentExpandedWhereModifiableValueRequired;
-                        Args.back().ExpandedWhereAddressableValueRequired = IsThisArgumentExpandedWhereAddressableValueRequired;
                     }
                     debug("Finished iterating arguments");
                     if (Exp->MI->isFunctionLike() &&
                         (ASTKind == "Stmt" || ASTKind == "Expr"))
                         TypeSignature += ")";
+
+                    // if (Exp->MI->isFunctionLike() &&
+                    //     (ASTKind == "Stmt" || ASTKind == "Expr"))
+                    // {
+                    //     for (const clang::IdentifierInfo *const &Param : Exp->MI->params())
+                    //     {
+                    //         ParamNames.push_back(Param->getName().str());
+                    //     }
+                    // }
                 }
 
                 // Set of all Stmts expanded from macro
@@ -1268,8 +1227,6 @@ if (L.isValid())
             JSON_ADD_PROPERTY(TypeSignature);
 
             JSON_ADD_PROPERTY(ReturnType);
-            JSON_ADD_PROPERTY(IsLValue);
-
             // It is NOT guaranteed that (Args.size() == NumArguments)
             // External macros' arguments are not analyzed
             JSON_ADD_PROPERTY(Args);

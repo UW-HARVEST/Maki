@@ -118,6 +118,7 @@ namespace cpp2c
                 if (!ArgTokens.empty())
                 {
                     Arg.Tokens = ArgTokens;
+                    Arg.TokensWithTail = ArgTokens;
                     // Remove the last token since it will always be the EOF
                     // token for this argument
                     Arg.Tokens.pop_back();

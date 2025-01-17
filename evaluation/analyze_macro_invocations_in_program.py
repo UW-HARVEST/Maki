@@ -11,12 +11,17 @@ from multiprocessing.pool import ThreadPool
 from typing import List
 
 
-@dataclass
 class CompileCommand:
     arguments: str
     directory: str
     file: str
 
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            self.__dict__[k] = v
+        # Check if the default values are set
+        if not hasattr(self, 'arguments') or not hasattr(self, 'directory') or not hasattr(self, 'file'):
+            raise ValueError('Invalid compile command')
 
 DELIM = "\t"
 
@@ -127,6 +132,7 @@ def cpp2c(cpp2c_so_path: str,
     fullpath = os.path.realpath(os.path.join(cc.directory, cc.file))
     with open(dst_path, 'w') as ofp:
         print(f'Analyzing macros in {fullpath} ({os.path.getsize(fullpath)} bytes)')
+        print(dst_path)
         # print header information about the analysis file
         print(f'Src{DELIM}{src_dir}', file=ofp)
         ofp.flush()
@@ -157,6 +163,7 @@ def main():
     dst_dir: str = os.path.abspath(args.dst_dir)
 
     os.chdir(program_dir)
+    print(f'Analyzing program in {program_dir}')
 
     if not os.path.isfile('compile_commands.json'):
         print('error: compile_commands.json not found')

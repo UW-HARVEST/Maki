@@ -18,6 +18,7 @@ namespace cpp2c
         llvm::StringRef Name;
         // The raw tokens comprising this argument
         std::vector<clang::Token> Tokens;
+        std::vector<clang::Token> TokensWithTail;
         // The AST roots this argument aligns with, if any
         std::vector<cpp2c::DeclStmtTypeLoc> AlignedRoots;
         // The number of times this argument is expanded in the body
