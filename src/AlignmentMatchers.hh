@@ -44,9 +44,11 @@ namespace cpp2c
 
         // These sets keep track of nodes we have already matched,
         // so that we do not match their subtrees as well
-        static std::set<const clang::Stmt *> MatchedStmts;
+        static std::set<const clang::Stmt *> MatchedStmts; // Also includes Exprs, can be casted
         static std::set<const clang::Decl *> MatchedDecls;
         static std::set<const clang::TypeLoc *> MatchedTypeLocs;
+        // Note these are STATIC, so they will persist between invocations
+        // This matcher cannot be used twice in the same translation unit
 
         // Collect a bunch of SourceLocation information up front that may be
         // useful later
