@@ -151,26 +151,28 @@ def cpp2c(cpp2c_so_path: str,
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('cpp2c_so_path', type=str)
+    ap.add_argument('compile_commands_json_path', type=str)
     ap.add_argument('program_dir', type=str)
-    ap.add_argument('src_dir', type=str)
+    # ap.add_argument('src_dir', type=str)
     ap.add_argument('dst_dir', type=str)
     ap.add_argument('num_processes', type=int)
     args = ap.parse_args()
 
     cpp2c_so_path: str = os.path.abspath(args.cpp2c_so_path)
+    compile_commands_json_path: str = os.path.abspath(args.compile_commands_json_path)
     program_dir: str = os.path.abspath(args.program_dir)
-    src_dir: str = os.path.abspath(args.src_dir)
+    src_dir: str = program_dir  # src_dir is the same as program_dir
     dst_dir: str = os.path.abspath(args.dst_dir)
 
     os.chdir(program_dir)
     print(f'Analyzing program in {program_dir}')
 
-    if not os.path.isfile('compile_commands.json'):
+    if not os.path.isfile(compile_commands_json_path):
         print('error: compile_commands.json not found')
         exit(1)
 
     # load compile commands.json
-    fp = open(r'compile_commands.json')
+    fp = open(compile_commands_json_path)
     ccs = [CompileCommand(**cc) for cc in json.load(fp)]
     fp.close()
 
