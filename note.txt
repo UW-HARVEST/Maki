@@ -3,11 +3,33 @@ sudo docker cp maki-container:/maki/evaluation/time_data ./
 sudo docker start maki-container
 sudo docker attach maki-container
 
-mkdir build
+mkdir -p build
 cd build
 cmake ..
+make
 
 cd ..
 
 bash reset_evaluation.sh
 bash replicate_results.sh &> trace.txt
+
+isUsedForHeaderGuard()
+
+AlignmentMatchers.cc seems to be matching expansions that align to a single AST node
+multiple nodes, e.g. two statements, are not matched
+Also, somehow typedef is not matched. 
+
+gcc -E test.c -fdirectives-only -o test-pped.c
+clang -E test.c -frewrite-includes -o test-pped.c
+clang -H test.c
+
+Get system predefined macros
+LLVM_SUPPORT_COMPILER_H
+clang -dM -E empty.c
+clang -MJ test.dep.json test.c
+
+clang++ -H -isystem /usr/lib/llvm-14/include -Wall -fdiagnostics-color=always -fvisibility-inlines-hidden -std=gnu++17 -fPIC -c /home/hurrypeng/Maki/src/MacroExpansionNode.cc
+clang++ -H -Dcpp2c_EXPORTS -fdiagnostics-color=always -fvisibility-inlines-hidden -g -std=gnu++17 -fPIC   -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -c /home/hurrypeng/Maki/src/MacroExpansionNode.cc
+
+./evaluation/analyze_macro_invocations_in_program.py "./build/lib/libcpp2c.so" "./compile_commands.json" "./" "./macro_invocation_analyses/" 16
+

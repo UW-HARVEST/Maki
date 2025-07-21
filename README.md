@@ -115,7 +115,16 @@ datasets/
 │                                       macro invocations across all programs.
 ```
 
-## Setup
+## Local Setup (Required by Hayroll)
+
+Maki requires the Clang toolchain (on Ubuntu/Debian, do `sudo apt install clang-14 llvm-14 libclang-14-dev`) and the Rust toolchain https://www.rust-lang.org/tools/install. After installing those, run the common CMake steps:
+
+```
+cmake -B build
+cmake --build build
+```
+
+## Docker Setup
 
 <!--
 Setup (for executable artifacts): provide clear instructions for how to prepare
