@@ -27,18 +27,6 @@ include_directories(SYSTEM "${LLVM_INCLUDE_DIRS};${CLANG_INCLUDE_DIRS}")
 # ADD THE TARGET
 #===============================================================================
 
-add_executable(remove-comments RemoveComments.cc)
-target_link_libraries(remove-comments
-    clangTooling
-    clangBasic
-    clangAST
-    clangLex
-    clangRewrite
-    clangFrontend
-    clangDriver
-    LLVMSupport
-)
-
 add_library(cpp2c SHARED
   ASTUtils.cc
   AlignmentMatchers.cc

@@ -6,22 +6,9 @@ enable_testing()
 #===============================================================================
 # 1. VERIFY CLANG INSTALLATION DIR
 #===============================================================================
-# Set this to a valid Clang installation dir
-#set(CT_LLVM_INSTALL_DIR "" CACHE PATH "LLVM installation directory")
-set(CT_LLVM_INSTALL_DIR "/usr")
-
-# A bit of a sanity checking
-set(CT_LLVM_INCLUDE_DIR "${CT_LLVM_INSTALL_DIR}/include/llvm-14")
-if(NOT EXISTS "${CT_LLVM_INCLUDE_DIR}")
-message(FATAL_ERROR
-  " CT_LLVM_INSTALL_DIR (${CT_LLVM_INCLUDE_DIR}) is invalid.")
-endif()
-
-set(CT_LLVM_CMAKE_FILE "${CT_LLVM_INSTALL_DIR}/lib/cmake/clang-14/ClangConfig.cmake")
-if(NOT EXISTS "${CT_LLVM_CMAKE_FILE}")
-message(FATAL_ERROR
-  " CT_LLVM_CMAKE_FILE (${CT_LLVM_CMAKE_FILE}) is invalid.")
-endif()
+find_package(LLVM 14 REQUIRED CONFIG
+  PATHS "/usr/lib/llvm-14/cmake/llvm"
+)
 
 #===============================================================================
 # 2. LOAD CLANG CONFIGURATION
