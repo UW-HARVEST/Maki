@@ -371,8 +371,8 @@ if (L.isValid())
                     // that's fine since it would be a non-global
                     // location anyway
                     if (auto Tok = clang::Lexer::findNextToken(E, SM, LO))
-                        if (Tok.hasValue())
-                            E = SM.getFileLoc(Tok.getValue().getEndLoc());
+                        if (Tok.has_value())
+                            E = SM.getFileLoc(Tok.value().getEndLoc());
 
                     if (E.isInvalid())
                         return false;

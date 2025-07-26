@@ -6,15 +6,13 @@ enable_testing()
 #===============================================================================
 # 1. VERIFY CLANG INSTALLATION DIR
 #===============================================================================
-find_package(LLVM 14 REQUIRED CONFIG
-  PATHS "/usr/lib/llvm-14/cmake/llvm"
-)
+find_package(LLVM 17 REQUIRED CONFIG)
 
 #===============================================================================
 # 2. LOAD CLANG CONFIGURATION
 #    For more: http://llvm.org/docs/CMake.html#embedding-llvm-in-your-project
 #===============================================================================
-set(CLANG_VERSION 14)
+set(CLANG_VERSION "${LLVM_VERSION_MAJOR}")
 list(APPEND CMAKE_PREFIX_PATH "${CT_LLVM_INSTALL_DIR}/lib/cmake/llvm-${CLANG_VERSION}/")
 list(APPEND CMAKE_PREFIX_PATH "${CT_LLVM_INSTALL_DIR}/lib/cmake/clang-${CLANG_VERSION}/")
 

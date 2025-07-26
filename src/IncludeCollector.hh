@@ -30,6 +30,6 @@ namespace cpp2c
             llvm::StringRef SearchPath,
             llvm::StringRef RelativePath,
             const clang::Module *Imported,
-            clang::SrcMgr::CharacteristicKind FileType) override;
+            clang::SrcMgr::CharacteristicKind FileType);
     };
 } // namespace cpp2c
