@@ -6,7 +6,14 @@ enable_testing()
 #===============================================================================
 # 1. VERIFY CLANG INSTALLATION DIR
 #===============================================================================
-find_package(LLVM 17 REQUIRED CONFIG)
+find_package(LLVM REQUIRED CONFIG)
+if(LLVM_PACKAGE_VERSION VERSION_LESS 17.0)
+  message(FATAL_ERROR "Found LLVM ${LLVM_PACKAGE_VERSION}, but need at least LLVM 17.0")
+endif()
+# Warn if greater or equal to 18.0
+if(LLVM_PACKAGE_VERSION VERSION_GREATER_EQUAL 18.0)
+  message(WARNING "Found LLVM ${LLVM_PACKAGE_VERSION}, but cpp2c has not been tested with LLVM 18.0 or greater")
+endif()
 
 #===============================================================================
 # 2. LOAD CLANG CONFIGURATION
