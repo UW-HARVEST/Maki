@@ -178,7 +178,7 @@ PROGRAMS = [
         r'linux-6.2-rc2',
         r'https://github.com/torvalds/linux/archive/refs/tags/v6.2-rc2.tar.gz',
         r'.',
-        r'make CC=clang-14 defconfig',
+        r'make CC=clang defconfig',
         r'intercept-build make -j8'
     ),
 

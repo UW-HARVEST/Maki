@@ -11,10 +11,10 @@ RUN apt -y upgrade
 RUN apt install -y build-essential
 
 # Install dependencies for Maki's Clang frontend
-RUN apt install -y clang-14
+RUN apt install -y clang-17
 RUN apt install -y cmake
-RUN apt install -y libclang-14-dev
-RUN apt install -y llvm-14
+RUN apt install -y libclang-17-dev
+RUN apt install -y llvm-17
 
 # Install dependencies for Maki's Python scripts
 RUN apt install -y software-properties-common

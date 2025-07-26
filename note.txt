@@ -33,3 +33,19 @@ clang++ -H -Dcpp2c_EXPORTS -fdiagnostics-color=always -fvisibility-inlines-hidde
 
 ./evaluation/analyze_macro_invocations_in_program.py "./build/lib/libcpp2c.so" "./compile_commands.json" "./" "./macro_invocation_analyses/" 16
 
+extern types
+extern decls
+local types
+local decls
+
+1. Entirely contains one or more top-level decls
+2. The first and the last top-level decls match perfectly with section begin and end
+
+Collect all top-level identifiers and their premises, write into cond tag
+
+Conditional
+- locBegin
+- locEnd
+- premise
+- ASTType
+- name (if ASTType == TopLevelDecl)

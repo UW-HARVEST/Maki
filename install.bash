@@ -6,10 +6,10 @@ sudo apt -y upgrade
 sudo apt install -y build-essential
 
 # Install dependencies for Maki's Clang frontend
-sudo apt install -y clang-14
+sudo apt install -y clang-17
 sudo apt install -y cmake
-sudo apt install -y libclang-14-dev
-sudo apt install -y llvm-14
+sudo apt install -y libclang-17-dev
+sudo apt install -y llvm-17
 
 # Install dependencies for Maki's Python scripts
 sudo apt install -y software-properties-common
