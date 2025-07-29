@@ -3,6 +3,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/TypeLoc.h"
+#include "clang/AST/ASTTypeTraits.h"
 
 namespace cpp2c
 {
@@ -23,5 +24,22 @@ namespace cpp2c
         void dump();
 
         clang::SourceRange getSourceRange();
+
+        bool operator==(const DeclStmtTypeLoc &Other) const
+        {
+            return (D == Other.D && ST == Other.ST && TL == Other.TL);
+        }
+
+        clang::DynTypedNode getDynTypedNode() const
+        {
+            if (D)
+                return clang::DynTypedNode::create(*D);
+            else if (ST)
+                return clang::DynTypedNode::create(*ST);
+            else if (TL)
+                return clang::DynTypedNode::create(*TL);
+            else
+                return clang::DynTypedNode();
+        }
     };
 } // namespace cpp2c

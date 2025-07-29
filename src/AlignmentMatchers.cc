@@ -50,15 +50,30 @@ namespace cpp2c
         // }
     }
 
-     void findAlignedASTNodesForExpansion(
+    template <typename NodeT>
+    static std::vector<clang::DynTypedNode>
+    collectAncestors(const NodeT &Start, clang::ASTContext &Ctx)
+    {
+        std::vector<clang::DynTypedNode> Chain;
+        clang::DynTypedNodeList Parents = Ctx.getParents(Start);
+        while (!Parents.empty()) {
+            clang::DynTypedNode Parent = Parents[0];
+            Chain.push_back(Parent);
+            Parents = Ctx.getParents(Parent);
+        }
+        return Chain;
+    }
+
+    void findAlignedASTNodesForExpansion(
         cpp2c::MacroExpansionNode *Exp,
         clang::ASTContext &Ctx)
     {
+        const static bool debug = false;
 
         using namespace clang::ast_matchers;
         // Find AST nodes aligned with the entire invocation
 
-        // Match stmts
+        // Match stmts (including exprs)
         {
             MatchFinder Finder;
             ExpansionMatchHandler Handler;
@@ -94,6 +109,102 @@ namespace cpp2c
             Finder.matchAST(Ctx);
             for (auto &&M : Handler.Matches)
                 Exp->ASTRoots.push_back(M);
+        }
+
+        // // Match all categories of AST nodes (Not working)
+        // {
+        //     using clang::ast_matchers::internal::DynTypedMatcher;
+        //     MatchFinder Finder;
+        //     ExpansionMatchHandler Handler;
+        //     Finder.addMatcher
+        //     (
+        //         DynTypedMatcher(
+        //             alignsWithExpansionAllCats(&Ctx, Exp)
+        //         ),
+        //         &Handler
+        //     );
+        //     Finder.matchAST(Ctx);
+        //     for (auto &&M : Handler.Matches)
+        //     {
+        //         Exp->ASTRoots.push_back(M);
+        //     }
+        // }
+
+        // Remove any ASTRoots that are descendants of other ASTRoots
+        // We want to make sure there are only top-level nodes
+        std::vector<cpp2c::DeclStmtTypeLoc> TopLevelRoots;
+        for (auto && Child : Exp->ASTRoots)
+        {
+            bool IsDescendant = false;
+            for (auto && PossibleAncestor : Exp->ASTRoots)
+            {
+                for (auto Ancestor : collectAncestors(Child.getDynTypedNode(), Ctx))
+                {
+                    if (Ancestor == PossibleAncestor.getDynTypedNode())
+                    {
+                        IsDescendant = true;
+                        if (debug)
+                        {
+                            llvm::errs() << "Descendant removed:\n";
+                            // Category
+                            if (Child.ST)
+                                llvm::errs() << "  Stmt: ";
+                            else if (Child.D)
+                                llvm::errs() << "  Decl: ";
+                            else if (Child.TL)
+                                llvm::errs() << "  TypeLoc: ";
+                            else
+                                llvm::errs() << "  Unknown: ";
+                            llvm::errs() << "  ";
+                            clang::PrintingPolicy Policy(Ctx.getLangOpts());
+                            Policy.SuppressUnwrittenScope = true; // Example configuration
+                            Child.getDynTypedNode().print(llvm::errs(), Policy);
+                            llvm::errs() << "  is a descendant of:\n";
+                            // Category
+                            if (PossibleAncestor.ST)
+                                llvm::errs() << "  Stmt: ";
+                            else if (PossibleAncestor.D)
+                                llvm::errs() << "  Decl: ";
+                            else if (PossibleAncestor.TL)
+                                llvm::errs() << "  TypeLoc: ";
+                            else
+                                llvm::errs() << "  Unknown: ";
+                            llvm::errs() << "  ";
+                            PossibleAncestor.getDynTypedNode().print(llvm::errs(), Policy);
+                            llvm::errs() << "\n";
+                        }
+                        break;
+                    }
+                }
+            }
+            if (!IsDescendant)
+            {
+                TopLevelRoots.push_back(Child);
+            }
+        }
+        Exp->ASTRoots = std::move(TopLevelRoots);
+
+        if (debug)
+        {
+            llvm::errs() << "Matched " << Exp->ASTRoots.size()
+                         << " top-level AST nodes for "
+                         << Exp->Name << ":\n";
+            for (auto &&ASTRoot : Exp->ASTRoots)
+            {
+                // Category
+                if (ASTRoot.ST)
+                    llvm::errs() << "  Stmt: ";
+                else if (ASTRoot.D)
+                    llvm::errs() << "  Decl: ";
+                else if (ASTRoot.TL)
+                    llvm::errs() << "  TypeLoc: ";
+                else
+                    llvm::errs() << "  Unknown: ";
+                llvm::errs() << "  ";
+                clang::PrintingPolicy Policy(Ctx.getLangOpts());
+                Policy.SuppressUnwrittenScope = true; // Example configuration
+                ASTRoot.getDynTypedNode().print(llvm::errs(), Policy);
+            }
         }
 
         // If the expansion only aligns with one node, then set this

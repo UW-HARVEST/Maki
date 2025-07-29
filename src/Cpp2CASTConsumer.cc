@@ -242,7 +242,7 @@ namespace cpp2c
 
     std::pair<bool, std::string> tryGetFilename(clang::SourceManager &SM, clang::SourceLocation L)
     {
-if (L.isValid())
+        if (L.isValid())
         {
             auto FID = SM.getFileID(L);
             if (FID.isValid())
@@ -1320,13 +1320,11 @@ if (L.isValid())
 
             #undef ADD_PROPERTY
 
-            llvm::outs() << "Invocation\t";
-
             // Output the JSON object
             if (Debug) {
-                llvm::outs() << properties.dump(4) << "\n"; // Pretty print with 4 spaces indentation
+                print("Invocation", properties.dump(4));
             } else {
-                llvm::outs() << properties.dump() << "\n"; // Compact print
+                print("Invocation", properties.dump());
             }
         }
 

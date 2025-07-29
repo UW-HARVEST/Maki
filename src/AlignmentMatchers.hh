@@ -21,6 +21,7 @@ namespace cpp2c
     // Matches all AST nodes that align perfectly with the body of the given
     // macro expansion.
     // Only tested to work with top-level, non-argument expansions.
+    // Used for macro bodies, not including args
     AST_POLYMORPHIC_MATCHER_P2(
         alignsWithExpansion,
         AST_POLYMORPHIC_SUPPORTED_TYPES(clang::Decl,
@@ -118,7 +119,7 @@ namespace cpp2c
         // 3. The node begins with a token that comes from an expansion of a
         //    nested macro invocation in the body of the macro's definition
 
-        // Set up case 2
+        // Set up case 2: expansion of an argument
         clang::SourceLocation ArgB;
         if (auto Arg = Expansion->ArgDefBeginsWith)
         {
@@ -140,7 +141,7 @@ namespace cpp2c
             }
         }
 
-        // Set up case 3
+        // Set up case 3: nested macro invocation
         clang::SourceLocation B = Node.getBeginLoc();
         while (SM.getImmediateMacroCallerLoc(B).isMacroID() &&
                SM.getImmediateMacroCallerLoc(B).isValid())
@@ -155,19 +156,19 @@ namespace cpp2c
 
         bool frontAligned =
             // Case 1
-            (DefB == NodeSpB) ||
+            (DefB <= NodeSpB) ||
             // Case 2
-            (ArgB.isValid() && ArgB == NodeSpB) ||
+            (ArgB.isValid() && ArgB <= NodeSpB) ||
             // Case 3
-            (DefB == B);
+            (DefB <= B);
 
         bool backAligned =
             // Case 1
-            (NodeSpE == DefE) ||
+            (DefE >= NodeSpE) ||
             // Case 2
-            (ArgE.isValid() && ArgE == NodeSpE) ||
+            (ArgE.isValid() && ArgE >= NodeSpE) ||
             // Case 3
-            (DefE == E);
+            (DefE >= E);
 
         // Either the node aligns with the macro itself,
         // or one of its arguments.
@@ -361,9 +362,34 @@ namespace cpp2c
         return true;
     }
 
+    // AST_POLYMORPHIC_MATCHER_P2(
+    //     alignsWithExpansionAllCats,
+    //     AST_POLYMORPHIC_SUPPORTED_TYPES(clang::Decl,
+    //                                     clang::Stmt,
+    //                                     clang::TypeLoc),
+    //     clang::ASTContext*, Ctx,
+    //     cpp2c::MacroExpansionNode*, Exp)
+    // {
+    //     using namespace clang::ast_matchers;
+    //     using clang::ast_matchers::internal::Matcher;
+    //     Matcher<clang::DynTypedNode> Combined =
+    //         anyOf(
+    //             stmt(
+    //                 unless(anyOf(implicitCastExpr(),
+    //                             implicitValueInitExpr())),
+    //                 alignsWithExpansion(Ctx, Exp)),
+
+    //             decl(alignsWithExpansion(Ctx, Exp)),
+
+    //             typeLoc(alignsWithExpansion(Ctx, Exp)));
+    //     // Match the node against the combined matcher
+    //     return Combined.matches(Node, Finder, Builder);
+    // }
+
     // Matches all AST nodes who span the same range that the
     // given token list spans, and for whose range every token
     // in the list is spelled
+    // Used for args
     AST_POLYMORPHIC_MATCHER_P2(
         isSpelledFromTokens,
         AST_POLYMORPHIC_SUPPORTED_TYPES(clang::Decl,
