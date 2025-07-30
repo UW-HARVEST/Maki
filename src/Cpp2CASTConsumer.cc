@@ -29,13 +29,16 @@ namespace cpp2c
     using namespace clang::ast_matchers;
 
     // Collect all subtrees of the given stmt using BFS
-    std::set<const clang::Stmt *> subtrees(const clang::Stmt *ST)
+    std::set<const clang::Stmt *> subtrees(const std::vector<const clang::Stmt *> & STs)
     {
         std::set<const clang::Stmt *> Subtrees;
-        if (!ST)
+        if (STs.empty())
             return Subtrees;
 
-        std::queue<const clang::Stmt *> Q({ST});
+        std::queue<const clang::Stmt *> Q;
+        for (const auto &ST : STs)
+            Q.push(ST);
+
         while (!Q.empty())
         {
             auto Cur = Q.front();
@@ -75,6 +78,14 @@ namespace cpp2c
                 for (auto &&Child : Cur->children())
                     Q.push(Child);
         }
+        return false;
+    }
+
+    bool inTrees(const std::vector<const clang::Stmt *> &LHSs, const clang::Stmt *RHS)
+    {
+        for (const auto &L : LHSs)
+            if (inTree(L, RHS))
+                return true;
         return false;
     }
 
@@ -808,10 +819,11 @@ namespace cpp2c
 
                 // Number of AST roots
                 NumASTRoots = Exp->ASTRoots.size();
+                std::vector<const clang::Stmt *> STs;
 
                 // Determine the AST kind of the expansion
                 debug("Checking if expansion has aligned root");
-                if (Exp->AlignedRoot)
+                if (Exp->AlignedRoot) // Aligned to a single AST node
                 {
                     auto D = Exp->AlignedRoot->D;
                     auto ST = Exp->AlignedRoot->ST;
@@ -821,6 +833,7 @@ namespace cpp2c
                     {
                         debug("Aligns with a stmt");
                         ASTKind = "Stmt";
+                        STs.push_back(ST);
                     }
                     else if (D)
                     {
@@ -850,6 +863,44 @@ namespace cpp2c
                     else
                         assert("Aligns with node that is not a Decl/Stmt/TypeLoc");
                 }
+                else if (NumASTRoots > 1)
+                {
+                    assert(ASTKind == "");
+
+                    bool givenUp = false;
+                    // Possibly aligned to a span of Stmts
+                    std::vector<const clang::Stmt *> PossibleSTs;
+                    for (const DeclStmtTypeLoc & Root : Exp->ASTRoots)
+                    {
+                        if (const clang::Stmt * ST = Root.ST) PossibleSTs.push_back(ST);
+                        else
+                        {
+                            givenUp = true;
+                            break;
+                        }
+                    }
+                    if (!givenUp)
+                    {
+                        assert(PossibleSTs.size() == NumASTRoots);
+                        // All possible STs should share the same parent
+                        clang::DynTypedNode Parent = Ctx.getParents(*PossibleSTs[0])[0];
+                        for (const auto &ST : PossibleSTs)
+                        {
+                            clang::DynTypedNode P = Ctx.getParents(*ST)[0];
+                            if (P != Parent)
+                            {
+                                givenUp = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!givenUp)
+                    {
+                        debug("Aligned to a span of stmts");
+                        ASTKind = "Stmts";
+                        STs = PossibleSTs;
+                    }
+                }
 
                 // Check that the number of AST nodes aligned with each argument
                 // equals the number of times that argument was expanded
@@ -872,9 +923,9 @@ namespace cpp2c
                     {
                         for (auto &&Root : Arg.AlignedRoots)
                         {
-                            auto STs = subtrees(Root.ST);
-                            StmtsExpandedFromArguments.insert(STs.begin(), STs.end());
-                            StmtsExpandedFromCertainArguments[Arg.Name.str()].insert(STs.begin(), STs.end());
+                            auto Subtrees = subtrees({Root.ST});
+                            StmtsExpandedFromArguments.insert(Subtrees.begin(), Subtrees.end());
+                            StmtsExpandedFromCertainArguments[Arg.Name.str()].insert(Subtrees.begin(), Subtrees.end());
                         }
                     }
                     debug("Done collecting argument subtrees");
@@ -940,12 +991,13 @@ namespace cpp2c
 
                 std::set<const clang::Stmt *> StmtsExpandedFromBody;
                 // Semantic properties of the macro body
-                if (Exp->AlignedRoot && Exp->AlignedRoot->ST && HasAlignedArguments)
+                if ((ASTKind == "Stmt" || ASTKind == "Stmts") && HasAlignedArguments)
                 {
-                    auto ST = Exp->AlignedRoot->ST;
+                    // Replaced all STs with a span of stmts
+                    // auto ST = Exp->AlignedRoot->ST;
 
                     debug("Collecting body subtrees");
-                    StmtsExpandedFromBody = subtrees(ST);
+                    StmtsExpandedFromBody = subtrees(STs);
                     // Remove all Stmts which were actually expanded from arguments
                     for (auto &&St : StmtsExpandedFromArguments)
                         StmtsExpandedFromBody.erase(St);
@@ -1021,15 +1073,34 @@ namespace cpp2c
                     IsHygienic = std::none_of(
                         DeclRefExprsOfLocallyDefinedDecls.begin(),
                         DeclRefExprsOfLocallyDefinedDecls.end(),
-                        [&ST, &SM, &ExpandedFromBody](const clang::DeclRefExpr *DRE)
+                        [&STs, &SM, &ExpandedFromBody](const clang::DeclRefExpr *DRE)
                         {
                             // References that don't come from the macro's body
                             // are fine
                             if (!ExpandedFromBody(DRE))
                                 return false;
 
-                            auto B = SM.getFileLoc(ST->getBeginLoc());
-                            auto E = SM.getFileLoc(ST->getEndLoc());
+                            clang::SourceLocation B, E;
+                            bool first = true;
+                            for (const auto & st : STs)
+                            {
+                                auto beginLoc = SM.getFileLoc(st->getBeginLoc());
+                                auto endLoc = SM.getFileLoc(st->getEndLoc());
+                                if (beginLoc.isValid() && endLoc.isValid())
+                                {
+                                    if (first)
+                                    {
+                                        B = beginLoc;
+                                        E = endLoc;
+                                        first = false;
+                                    }
+                                    else
+                                    {
+                                        if (SM.isBeforeInTranslationUnit(beginLoc, B)) B = beginLoc;
+                                        if (SM.isBeforeInTranslationUnit(E, endLoc)) E = endLoc;
+                                    }
+                                }
+                            }
                             auto D = DRE->getDecl();
                             if (!D)
                                 return false;
@@ -1045,7 +1116,7 @@ namespace cpp2c
                     IsInvokedWhereModifiableValueRequired = std::any_of(
                         SideEffectExprs.begin(),
                         SideEffectExprs.end(),
-                        [&ST, &ExpandedFromBody](const clang::Expr *E)
+                        [&STs, &ExpandedFromBody](const clang::Expr *E)
                         {
                             // Only consider side-effect expressions which were
                             // not expanded from the body of the same macro
@@ -1058,7 +1129,7 @@ namespace cpp2c
                                     LHS = B->getLHS();
                                 else if (U)
                                     LHS = U->getSubExpr();
-                                return inTree(ST, LHS);
+                                return inTrees(STs, LHS);
                             }
                             return false;
                         });
@@ -1066,7 +1137,7 @@ namespace cpp2c
                     IsInvokedWhereAddressableValueRequired = std::any_of(
                         AddressOfExprs.begin(),
                         AddressOfExprs.end(),
-                        [&ST, &ExpandedFromBody](const clang::UnaryOperator *U)
+                        [&STs, &ExpandedFromBody](const clang::UnaryOperator *U)
                         {
                             // Only consider address of expressions which were
                             // not expanded from the body of the same macro
@@ -1074,20 +1145,29 @@ namespace cpp2c
                             {
                                 auto Operand = U->getSubExpr();
                                 Operand = skipImplicitAndParens(Operand);
-                                return inTree(ST, Operand);
+                                return inTrees(STs, Operand);
                             }
                             return false;
                         });
 
-                    IsInvokedWhereICERequired =
-                        isDescendantOfStmtRequiringICE(Ctx, ST);
+                    // IsInvokedWhereICERequired =
+                    //     isDescendantOfStmtRequiringICE(Ctx, ST);
+                    for (const auto & st : STs)
+                    {
+                        if (isDescendantOfStmtRequiringICE(Ctx, st))
+                        {
+                            IsInvokedWhereICERequired = true;
+                            break;
+                        }
+                    }
 
                     //// Generate type signature
 
                     // Body type information
                     TypeSignature = "void";
-                    if (auto E = clang::dyn_cast<clang::Expr>(ST))
+                    if (ASTKind == "Stmt" && clang::dyn_cast<clang::Expr>(Exp->AlignedRoot->ST))
                     {
+                        auto E = clang::dyn_cast<clang::Expr>(Exp->AlignedRoot->ST);
                         ASTKind = "Expr";
 
                         // Type information about the entire expansion

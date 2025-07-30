@@ -157,7 +157,6 @@ namespace cpp2c
                                 llvm::errs() << "  Unknown: ";
                             llvm::errs() << "  ";
                             clang::PrintingPolicy Policy(Ctx.getLangOpts());
-                            Policy.SuppressUnwrittenScope = true; // Example configuration
                             Child.getDynTypedNode().print(llvm::errs(), Policy);
                             llvm::errs() << "  is a descendant of:\n";
                             // Category
@@ -186,11 +185,29 @@ namespace cpp2c
 
         if (debug)
         {
+            if (Exp->ASTRoots.size() > 1)
+            {
+                llvm::errs() << "Multiple AST nodes aligned with "
+                             << Exp->Name << ":\n";
+            }
+
             llvm::errs() << "Matched " << Exp->ASTRoots.size()
                          << " top-level AST nodes for "
-                         << Exp->Name << ":\n";
+                         << Exp->Name << " at " << Exp->SpellingRange.getBegin().printToString(Ctx.getSourceManager())
+                         << ":\n";
             for (auto &&ASTRoot : Exp->ASTRoots)
             {
+                // Print source range lin:col
+                auto SR = ASTRoot.getSourceRange();
+                auto BeginLoc = SR.getBegin();
+                auto EndLoc = SR.getEnd();
+                auto BeginLine = Ctx.getSourceManager().getSpellingLineNumber(BeginLoc);
+                auto BeginCol = Ctx.getSourceManager().getSpellingColumnNumber(BeginLoc);
+                auto EndLine = Ctx.getSourceManager().getSpellingLineNumber(EndLoc);
+                auto EndCol = Ctx.getSourceManager().getSpellingColumnNumber(EndLoc);
+                llvm::errs() << BeginLine << ":" << BeginCol << "-"
+                             << EndLine << ":" << EndCol;
+
                 // Category
                 if (ASTRoot.ST)
                     llvm::errs() << "  Stmt: ";
@@ -202,8 +219,8 @@ namespace cpp2c
                     llvm::errs() << "  Unknown: ";
                 llvm::errs() << "  ";
                 clang::PrintingPolicy Policy(Ctx.getLangOpts());
-                Policy.SuppressUnwrittenScope = true; // Example configuration
                 ASTRoot.getDynTypedNode().print(llvm::errs(), Policy);
+                llvm::errs() << "\n";
             }
         }
 

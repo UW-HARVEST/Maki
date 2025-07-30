@@ -170,6 +170,12 @@ namespace cpp2c
             // Case 3
             (DefE >= E);
 
+        bool midOrder =
+            // Case 1, 2
+            ((NodeSpB <= NodeSpE) && (NodeSpB <= DefE) && (NodeSpE >= DefB)) ||
+            // Case 3
+            ((B <= E) && (B <= DefE) && (E >= DefB));
+
         // Either the node aligns with the macro itself,
         // or one of its arguments.
         if (!frontAligned)
@@ -278,6 +284,26 @@ namespace cpp2c
             }
             return false;
         }
+        if (!midOrder)
+        {
+            if (debug)
+            {
+                llvm::errs() << "Node mismatch <not mid order>\n";
+                if (DSTL.ST)
+                    DSTL.ST->dumpColor();
+                else if (DSTL.D)
+                    DSTL.D->dumpColor();
+                else if (DSTL.TL)
+                {
+                    auto QT = DSTL.TL->getType();
+                    if (!QT.isNull())
+                        QT.dump();
+                    else
+                        llvm::errs() << "<Null type>\n";
+                }
+            }
+            return false;
+        }
 
         // Check that this node has not been matched before
         bool foundNodeBefore = false;
@@ -358,6 +384,18 @@ namespace cpp2c
                 else
                     llvm::errs() << "<Null type>\n";
             }
+            llvm::errs() << "DefB: ";
+            DefB.dump(SM);
+            llvm::errs() << "DefE: ";
+            DefE.dump(SM);
+            llvm::errs() << "NodeSpB: ";
+            NodeSpB.dump(SM);
+            llvm::errs() << "NodeSpE: ";
+            NodeSpE.dump(SM);
+            llvm::errs() << "NodeExB: ";
+            NodeExB.dump(SM);
+            llvm::errs() << "NodeExE: ";
+            NodeExE.dump(SM);
         }
         return true;
     }

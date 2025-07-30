@@ -10,3 +10,4 @@ CMakeFiles/
 *.make
 /bin/
 /wrappers/
+trace.txt

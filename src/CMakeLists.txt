@@ -30,7 +30,6 @@ include_directories(SYSTEM "${LLVM_INCLUDE_DIRS};${CLANG_INCLUDE_DIRS}")
 add_library(cpp2c SHARED
   ASTUtils.cc
   AlignmentMatchers.cc
-  BoundingMatchers.cc
   Cpp2CAction.cc
   Cpp2CASTConsumer.cc
   DefinitionInfoCollector.cc
