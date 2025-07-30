@@ -658,57 +658,57 @@ namespace cpp2c
 
             // Integer properties
             int
-                InvocationDepth,
-                NumASTRoots,
-                NumArguments;
+                InvocationDepth = 0,
+                NumASTRoots = 0,
+                NumArguments = 0;
 
             // Boolean properties
             bool
-                HasStringification,
-                HasTokenPasting,
-                HasAlignedArguments,
-                HasSameNameAsOtherDeclaration,
+                HasStringification = false,
+                HasTokenPasting = false,
+                HasAlignedArguments = false,
+                HasSameNameAsOtherDeclaration = false,
 
-                IsExpansionControlFlowStmt,
+                IsExpansionControlFlowStmt = false,
 
-                DoesBodyReferenceMacroDefinedAfterMacro,
-                DoesBodyReferenceDeclDeclaredAfterMacro,
-                DoesBodyContainDeclRefExpr,
-                DoesSubexpressionExpandedFromBodyHaveLocalType,
-                DoesSubexpressionExpandedFromBodyHaveTypeDefinedAfterMacro,
+                DoesBodyReferenceMacroDefinedAfterMacro = false,
+                DoesBodyReferenceDeclDeclaredAfterMacro = false,
+                DoesBodyContainDeclRefExpr = false,
+                DoesSubexpressionExpandedFromBodyHaveLocalType = false,
+                DoesSubexpressionExpandedFromBodyHaveTypeDefinedAfterMacro = false,
 
-                DoesAnyArgumentHaveSideEffects,
-                DoesAnyArgumentContainDeclRefExpr,
+                DoesAnyArgumentHaveSideEffects = false,
+                DoesAnyArgumentContainDeclRefExpr = false,
 
-                IsHygienic,
-                IsDefinitionLocationValid,
-                IsInvocationLocationValid,
-                IsObjectLike,
-                IsInvokedInMacroArgument,
-                IsNamePresentInCPPConditional,
-                IsExpansionICE,
+                IsHygienic = false,
+                IsDefinitionLocationValid = false,
+                IsInvocationLocationValid = false,
+                IsObjectLike = false,
+                IsInvokedInMacroArgument = false,
+                IsNamePresentInCPPConditional = false,
+                IsExpansionICE = false,
 
-                IsExpansionTypeNull,
-                IsExpansionTypeAnonymous,
-                IsExpansionTypeLocalType,
-                IsExpansionTypeDefinedAfterMacro,
-                IsExpansionTypeVoid,
+                IsExpansionTypeNull = false,
+                IsExpansionTypeAnonymous = false,
+                IsExpansionTypeLocalType = false,
+                IsExpansionTypeDefinedAfterMacro = false,
+                IsExpansionTypeVoid = false,
 
-                IsAnyArgumentTypeNull,
-                IsAnyArgumentTypeAnonymous,
-                IsAnyArgumentTypeLocalType,
-                IsAnyArgumentTypeDefinedAfterMacro,
-                IsAnyArgumentTypeVoid,
+                IsAnyArgumentTypeNull = false,
+                IsAnyArgumentTypeAnonymous = false,
+                IsAnyArgumentTypeLocalType = false,
+                IsAnyArgumentTypeDefinedAfterMacro = false,
+                IsAnyArgumentTypeVoid = false,
 
-                IsInvokedWhereModifiableValueRequired,
-                IsInvokedWhereAddressableValueRequired,
-                IsInvokedWhereICERequired,
+                IsInvokedWhereModifiableValueRequired = false,
+                IsInvokedWhereAddressableValueRequired = false,
+                IsInvokedWhereICERequired = false,
 
-                IsAnyArgumentExpandedWhereModifiableValueRequired,
-                IsAnyArgumentExpandedWhereAddressableValueRequired,
-                IsAnyArgumentConditionallyEvaluated,
-                IsAnyArgumentNeverExpanded,
-                IsAnyArgumentNotAnExpression;
+                IsAnyArgumentExpandedWhereModifiableValueRequired = false,
+                IsAnyArgumentExpandedWhereAddressableValueRequired = false,
+                IsAnyArgumentConditionallyEvaluated = false,
+                IsAnyArgumentNeverExpanded = false,
+                IsAnyArgumentNotAnExpression = false;
 
             Name = Exp->Name.str();
             InvocationDepth = Exp->Depth;
