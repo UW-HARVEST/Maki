@@ -1,6 +1,10 @@
 #pragma once
 
+#include <vector>
+
 #include <clang/Frontend/FrontendPluginRegistry.h>
+
+#include "Cpp2CASTConsumer.hh"
 
 namespace cpp2c
 {
@@ -16,6 +20,8 @@ namespace cpp2c
                   const std::vector<std::string> &arg) override;
 
         clang::PluginASTAction::ActionType getActionType() override;
+
+        std::vector<Cpp2CASTConsumer::CodeIntervalAnalysisTask> codeIntervalAnalysisTasks;
     };
 
 } // namespace cpp2c

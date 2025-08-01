@@ -396,7 +396,11 @@ namespace cpp2c
         return {true, IncludedFileRealpath};
     }
 
-    Cpp2CASTConsumer::Cpp2CASTConsumer(clang::CompilerInstance &CI)
+    Cpp2CASTConsumer::Cpp2CASTConsumer
+    (
+        clang::CompilerInstance &CI,
+        std::vector<CodeIntervalAnalysisTask> codeIntervalAnalysisTasks
+    )
     {
         clang::Preprocessor &PP = CI.getPreprocessor();
         clang::ASTContext &Ctx = CI.getASTContext();
@@ -408,6 +412,8 @@ namespace cpp2c
         PP.addPPCallbacks(std::unique_ptr<cpp2c::MacroForest>(MF));
         PP.addPPCallbacks(std::unique_ptr<cpp2c::IncludeCollector>(IC));
         PP.addPPCallbacks(std::unique_ptr<cpp2c::DefinitionInfoCollector>(DC));
+
+        this->codeIntervalAnalysisTasks = std::move(codeIntervalAnalysisTasks);
     }
 
     struct ArgInfo
@@ -496,6 +502,18 @@ namespace cpp2c
         }
         debug("Finished checking includes");
 
+        if (IC->IncludeEntriesLocs.size() > 0 && codeIntervalAnalysisTasks.size() > 0)
+        {
+            // Error and exit
+            llvm::errs() << "Code interval analysis tasks should only be used on compilation"
+                          << " unit files without includes. Otherwise the line and column"
+                          << " numbers are ambiguous. Found "
+                          << IC->IncludeEntriesLocs.size()
+                          << " includes and "
+                          << codeIntervalAnalysisTasks.size()
+                          << " code interval analysis tasks.";
+            exit(1);
+        }
 
         // Collect certain sets of AST nodes that will be used for checking
         // whether properties are satisfied
@@ -820,6 +838,7 @@ namespace cpp2c
                 // Number of AST roots
                 NumASTRoots = Exp->ASTRoots.size();
                 std::vector<const clang::Stmt *> STs;
+                std::vector<const clang::Decl *> Ds;
 
                 // Determine the AST kind of the expansion
                 debug("Checking if expansion has aligned root");
@@ -837,8 +856,15 @@ namespace cpp2c
                     }
                     else if (D)
                     {
-                        debug("Aligns with a decl");
-                        ASTKind = "Decl";
+                        // Allow only top-level decls
+                        // Also requires parent being a TranslationUnitDecl
+                        clang::DynTypedNode Parent = Ctx.getParents(*D)[0];
+                        if (Parent.get<clang::TranslationUnitDecl>())
+                        {
+                            ASTKind = "Decl";
+                            Ds.push_back(D);
+                            debug("Aligns with a decl");
+                        }
                     }
                     else if (TL)
                     {
@@ -867,7 +893,7 @@ namespace cpp2c
                 {
                     assert(ASTKind == "");
 
-                    bool givenUp = false;
+                    bool givenUpSTs = false;
                     // Possibly aligned to a span of Stmts
                     std::vector<const clang::Stmt *> PossibleSTs;
                     for (const DeclStmtTypeLoc & Root : Exp->ASTRoots)
@@ -875,11 +901,11 @@ namespace cpp2c
                         if (const clang::Stmt * ST = Root.ST) PossibleSTs.push_back(ST);
                         else
                         {
-                            givenUp = true;
+                            givenUpSTs = true;
                             break;
                         }
                     }
-                    if (!givenUp)
+                    if (!givenUpSTs)
                     {
                         assert(PossibleSTs.size() == NumASTRoots);
                         // All possible STs should share the same parent
@@ -889,16 +915,55 @@ namespace cpp2c
                             clang::DynTypedNode P = Ctx.getParents(*ST)[0];
                             if (P != Parent)
                             {
-                                givenUp = true;
+                                givenUpSTs = true;
                                 break;
                             }
                         }
                     }
-                    if (!givenUp)
+                    if (!givenUpSTs)
                     {
                         debug("Aligned to a span of stmts");
                         ASTKind = "Stmts";
                         STs = PossibleSTs;
+                    }
+
+                    bool givenUpDs = false;
+                    // Possibly aligned to a span of Decls
+                    std::vector<const clang::Decl *> PossibleDs;
+                    for (const DeclStmtTypeLoc & Root : Exp->ASTRoots)
+                    {
+                        if (const clang::Decl * D = Root.D) PossibleDs.push_back(D);
+                        else
+                        {
+                            givenUpDs = true;
+                            break;
+                        }
+                    }
+                    if (!givenUpDs)
+                    {
+                        assert(PossibleDs.size() == NumASTRoots);
+                        // All possible Ds should share the same parent (TranslationUnitDecl)
+                        clang::DynTypedNode Parent = Ctx.getParents(*PossibleDs[0])[0];
+                        // Break if Parent is not a TranslationUnitDecl
+                        if (!Parent.get<clang::TranslationUnitDecl>())
+                        {
+                            givenUpDs = true;
+                        }
+                        for (const auto &D : PossibleDs)
+                        {
+                            clang::DynTypedNode P = Ctx.getParents(*D)[0];
+                            if (P != Parent)
+                            {
+                                givenUpDs = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!givenUpDs)
+                    {
+                        debug("Aligned to a span of decls");
+                        ASTKind = "Decls";
+                        Ds = PossibleDs;
                     }
                 }
 
