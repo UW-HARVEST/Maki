@@ -1,5 +1,6 @@
 #include "AlignmentMatchers.hh"
 #include "ExpansionMatchHandler.hh"
+#include <stack>
 
 namespace cpp2c
 {
