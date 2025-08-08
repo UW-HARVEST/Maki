@@ -11,25 +11,42 @@
 
 namespace cpp2c
 {
+    struct CodeRangeAnalysisTask
+    {
+        std::string name;
+        int beginLine;
+        int beginCol;
+        int endLine;
+        int endCol;
+        std::string extraInfo;
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(CodeRangeAnalysisTask, name, beginLine, beginCol, endLine, endCol, extraInfo)
+
+        clang::SourceRange getSourceRange(clang::SourceManager & SM) const
+        {
+            clang::SourceLocation BeginLoc = SM.translateLineCol(SM.getMainFileID(), beginLine, beginCol);
+            clang::SourceLocation EndLoc = SM.translateLineCol(SM.getMainFileID(), endLine, endCol);
+            return clang::SourceRange(BeginLoc, EndLoc);
+        }
+
+        std::string toString() const
+        {
+            std::ostringstream oss;
+            oss << "CodeRangeAnalysisTask: " << name << "\n"
+                << "  Begin: " << beginLine << ":" << beginCol << "\n"
+                << "  End: " << endLine << ":" << endCol << "\n"
+                << "  Extra Info: " << extraInfo << "\n";
+            return oss.str();
+        }
+    };
+
     class Cpp2CASTConsumer : public clang::ASTConsumer
     {
     public:
-        struct CodeIntervalAnalysisTask
-        {
-            std::string name;
-            int beginLine;
-            int beginCol;
-            int endLine;
-            int endCol;
-            std::string extraInfo;
-
-            NLOHMANN_DEFINE_TYPE_INTRUSIVE(CodeIntervalAnalysisTask, name, beginLine, beginCol, endLine, endCol, extraInfo)
-        };
-
         Cpp2CASTConsumer
         (
             clang::CompilerInstance &CI,
-            std::vector<CodeIntervalAnalysisTask> codeIntervalAnalysisTasks
+            std::vector<CodeRangeAnalysisTask> codeRangeAnalysisTasks
         );
         void HandleTranslationUnit(clang::ASTContext &Ctx) override;
 
@@ -38,7 +55,7 @@ namespace cpp2c
         cpp2c::IncludeCollector *IC;
         cpp2c::DefinitionInfoCollector *DC;
 
-        std::vector<CodeIntervalAnalysisTask> codeIntervalAnalysisTasks;
+        std::vector<CodeRangeAnalysisTask> codeRangeAnalysisTasks;
     };
 
     template <typename T>

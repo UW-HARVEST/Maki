@@ -21,7 +21,7 @@ namespace cpp2c
 
         clang::PluginASTAction::ActionType getActionType() override;
 
-        std::vector<Cpp2CASTConsumer::CodeIntervalAnalysisTask> codeIntervalAnalysisTasks;
+        std::vector<CodeRangeAnalysisTask> codeRangeAnalysisTasks;
     };
 
 } // namespace cpp2c

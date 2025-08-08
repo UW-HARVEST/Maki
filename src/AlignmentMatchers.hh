@@ -2,6 +2,7 @@
 
 #include "DeclStmtTypeLoc.hh"
 #include "MacroExpansionNode.hh"
+#include "Cpp2CASTConsumer.hh"
 
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Lex/Lexer.h"
@@ -620,7 +621,148 @@ namespace cpp2c
         return true;
     }
 
+    AST_POLYMORPHIC_MATCHER_P2(
+        alignsWithRange,
+        AST_POLYMORPHIC_SUPPORTED_TYPES(clang::Decl,
+                                        clang::Stmt,
+                                        clang::TypeLoc),
+        clang::ASTContext *, Ctx,
+        clang::SourceRange, Range)
+    {
+        // Can't match a range with an invalid location
+        if (Node.getBeginLoc().isInvalid() || Node.getEndLoc().isInvalid())
+            return false;
+
+        auto DefB = Range.getBegin();
+        auto DefE = Range.getEnd();
+        if (DefB.isInvalid() || DefE.isInvalid())
+            return false;
+
+        // These sets keep track of nodes we have already matched,
+        // so that we do not match their subtrees as well
+        static std::set<const clang::Stmt *> MatchedStmts; // Also includes Exprs, can be casted
+        static std::set<const clang::Decl *> MatchedDecls;
+        static std::set<const clang::TypeLoc *> MatchedTypeLocs;
+        // Note these are STATIC, so they will persist between invocations
+        // This matcher cannot be used twice in the same translation unit
+
+        // Collect a bunch of SourceLocation information up front that may be
+        // useful later
+
+        auto &SM = Ctx->getSourceManager();
+
+        auto NodeExB = SM.getExpansionLoc(Node.getBeginLoc());
+        auto NodeExE = SM.getExpansionLoc(Node.getEndLoc());
+        DeclStmtTypeLoc DSTL(&Node);
+
+        static const constexpr bool debug = false;
+
+        if (!Range.fullyContains(NodeExE))
+        {
+            return false;
+        }
+
+        bool frontAligned =
+            // Case 1
+            (DefB <= NodeExB);
+
+        bool backAligned =
+            // Case 1
+            (DefE >= NodeExE);
+
+        bool midOrder =
+            // Case 1
+            ((NodeExB <= NodeExE) && (NodeExB <= DefE) && (NodeExE >= DefB));
+
+        // Either the node aligns with the macro itself,
+        // or one of its arguments.
+        if (!frontAligned)
+        {
+            return false;
+        }
+        if (!backAligned)
+        {
+            return false;
+        }
+        if (!midOrder)
+        {
+            return false;
+        }
+
+        // Check that this node has not been matched before
+        bool foundNodeBefore = false;
+        if (DSTL.ST && MatchedStmts.find(DSTL.ST) != MatchedStmts.end())
+            foundNodeBefore = true;
+        else if (DSTL.D && MatchedDecls.find(DSTL.D) != MatchedDecls.end())
+            foundNodeBefore = true;
+        else if (DSTL.TL &&
+                 MatchedTypeLocs.find(DSTL.TL) != MatchedTypeLocs.end())
+            foundNodeBefore = true;
+        if (foundNodeBefore)
+        {
+            if (debug)
+            {
+                llvm::errs() << "Found node before\n";
+                if (DSTL.ST)
+                    DSTL.ST->dumpColor();
+                else if (DSTL.D)
+                    DSTL.D->dumpColor();
+                else if (DSTL.TL)
+                {
+                    auto QT = DSTL.TL->getType();
+                    if (!QT.isNull())
+                        QT.dump();
+                    else
+                        llvm::errs() << "<Null type>\n";
+                }
+            }
+            return false;
+        }
+
+        // Check that this node is not a proper subtree of an aligned node
+        // that we already found.
+        bool foundParentBefore = false;
+        for (auto P : Ctx->getParents(Node))
+        {
+            if (auto PST = P.template get<clang::Stmt>())
+            {
+                if (MatchedStmts.find(PST) != MatchedStmts.end())
+                    foundParentBefore = true;
+            }
+            else if (auto DP = P.template get<clang::Decl>())
+            {
+                if (MatchedDecls.find(DP) != MatchedDecls.end())
+                    foundParentBefore = true;
+            }
+            else if (auto DTL = P.template get<clang::TypeLoc>())
+            {
+                if (MatchedTypeLocs.find(DTL) != MatchedTypeLocs.end())
+                    foundParentBefore = true;
+            }
+        }
+        if (foundParentBefore)
+        {
+            if (debug)
+            {
+                llvm::errs() << "Found parent before\n";
+            }
+            return false;
+        }
+
+        // Store this node and its children in the set of aligned subtrees
+        // we've found
+        storeChildren(DSTL, MatchedStmts, MatchedDecls, MatchedTypeLocs);
+
+        return true;
+    }
+
     void findAlignedASTNodesForExpansion(
         cpp2c::MacroExpansionNode *Exp,
         clang::ASTContext &Ctx);
+
+    std::vector<DeclStmtTypeLoc> findAlignedASTNodesForCodeRange
+    (
+        const CodeRangeAnalysisTask & Task,
+        clang::ASTContext & Ctx
+    );
 }

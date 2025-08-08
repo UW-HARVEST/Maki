@@ -39,7 +39,7 @@ def cpp2c(cpp2c_so_path: str,
           src_dir: str,
           dst_path: str,
           i: List[int], n: int,
-          code_interval_analysis_tasks_json_path: str | None = None
+          code_range_analysis_tasks_json_path: str | None = None
           ) -> None:
     '''
     Runs Cpp2C on the program that the given compile_commands.json file
@@ -129,10 +129,10 @@ def cpp2c(cpp2c_so_path: str,
         '-Wno-initializer-overrides'
     ]
     args.extend(ignored_warnings)
-    if code_interval_analysis_tasks_json_path:
-        # if we are doing code interval analysis, pass the path to the task
+    if code_range_analysis_tasks_json_path:
+        # if we are doing code range analysis, pass the path to the task
         # json file to the plugin
-        args.append(f'-fplugin-arg-cpp2c-code_interval_analysis_tasks_json_path={code_interval_analysis_tasks_json_path}')
+        args.append(f'-fplugin-arg-cpp2c-code_range_analysis_tasks_json_path={code_range_analysis_tasks_json_path}')
 
     fullpath = os.path.realpath(os.path.join(cc.directory, cc.file))
     with open(dst_path, 'w') as ofp:
@@ -162,7 +162,7 @@ def main():
     ap.add_argument('dst_dir', type=str)
     ap.add_argument('num_processes', type=int)
     # optional arguments
-    ap.add_argument('code_interval_analysis_tasks_json_path', type=str, nargs='?')
+    ap.add_argument('code_range_analysis_tasks_json_path', type=str, nargs='?')
     args = ap.parse_args()
 
     cpp2c_so_path: str = os.path.abspath(args.cpp2c_so_path)
@@ -170,7 +170,7 @@ def main():
     program_dir: str = os.path.abspath(args.program_dir)
     src_dir: str = program_dir  # src_dir is the same as program_dir
     dst_dir: str = os.path.abspath(args.dst_dir)
-    code_interval_analysis_tasks_json_path: str | None = os.path.abspath(args.code_interval_analysis_tasks_json_path) if args.code_interval_analysis_tasks_json_path else None
+    code_range_analysis_tasks_json_path: str | None = os.path.abspath(args.code_range_analysis_tasks_json_path) if args.code_range_analysis_tasks_json_path else None
 
     os.chdir(program_dir)
     print(f'Analyzing program in {program_dir}')
@@ -228,7 +228,7 @@ def main():
     with ThreadPool(args.num_processes) as pool:
         pool.starmap(cpp2c, zip(repeat(cpp2c_so_path), ccs, repeat(src_dir),
                                 dst_paths, repeat(i), repeat(n),
-                                repeat(code_interval_analysis_tasks_json_path)))
+                                repeat(code_range_analysis_tasks_json_path)))
 
     # combine all results into a single file
     with open(os.path.join(dst_dir, 'all_results.cpp2c'), 'w') as ofp:

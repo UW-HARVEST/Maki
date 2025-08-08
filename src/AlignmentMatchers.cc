@@ -1,5 +1,6 @@
 #include "AlignmentMatchers.hh"
 #include "ExpansionMatchHandler.hh"
+#include "Cpp2CASTConsumer.hh"
 #include <stack>
 
 namespace cpp2c
@@ -274,5 +275,157 @@ namespace cpp2c
                     Arg.AlignedRoots.push_back(M);
             }
         }
+    }
+
+    std::vector<DeclStmtTypeLoc> findAlignedASTNodesForCodeRange
+    (
+        const CodeRangeAnalysisTask & Task,
+        clang::ASTContext & Ctx
+    )
+    {
+        const static bool debug = false;
+
+        clang::SourceManager & SM = Ctx.getSourceManager();
+
+        clang::SourceRange Range = Task.getSourceRange(SM);
+        std::vector<DeclStmtTypeLoc> AlignedASTNodes;
+
+        using namespace clang::ast_matchers;
+        // Find AST nodes aligned with the entire invocation
+
+        // Match stmts (including exprs)
+        {
+            MatchFinder Finder;
+            ExpansionMatchHandler Handler;
+            auto Matcher = stmt(unless(anyOf(implicitCastExpr(),
+                                             implicitValueInitExpr())),
+                                alignsWithRange(&Ctx, Range))
+                               .bind("root");
+            Finder.addMatcher(Matcher, &Handler);
+            Finder.matchAST(Ctx);
+            for (auto &&M : Handler.Matches)
+                AlignedASTNodes.push_back(M);
+        }
+
+        // Match decls
+        {
+            MatchFinder Finder;
+            ExpansionMatchHandler Handler;
+            auto Matcher = decl(alignsWithRange(&Ctx, Range))
+                               .bind("root");
+            Finder.addMatcher(Matcher, &Handler);
+            Finder.matchAST(Ctx);
+            for (auto &&M : Handler.Matches)
+                AlignedASTNodes.push_back(M);
+        }
+
+        // Match type locs
+        {
+            MatchFinder Finder;
+            ExpansionMatchHandler Handler;
+            auto Matcher = typeLoc(alignsWithRange(&Ctx, Range))
+                               .bind("root");
+            Finder.addMatcher(Matcher, &Handler);
+            Finder.matchAST(Ctx);
+            for (auto &&M : Handler.Matches)
+                AlignedASTNodes.push_back(M);
+        }
+
+        // Remove any ASTRoots that are descendants of other ASTRoots
+        // We want to make sure there are only top-level nodes
+        std::vector<cpp2c::DeclStmtTypeLoc> TopLevelRoots;
+        for (auto && Child : AlignedASTNodes)
+        {
+            bool IsDescendant = false;
+            for (auto && PossibleAncestor : AlignedASTNodes)
+            {
+                for (auto Ancestor : collectAncestors(Child.getDynTypedNode(), Ctx))
+                {
+                    if (Ancestor == PossibleAncestor.getDynTypedNode())
+                    {
+                        IsDescendant = true;
+                        if (debug)
+                        {
+                            llvm::errs() << "Descendant removed:\n";
+                            // Category
+                            if (Child.ST)
+                                llvm::errs() << "  Stmt: ";
+                            else if (Child.D)
+                                llvm::errs() << "  Decl: ";
+                            else if (Child.TL)
+                                llvm::errs() << "  TypeLoc: ";
+                            else
+                                llvm::errs() << "  Unknown: ";
+                            llvm::errs() << "  ";
+                            clang::PrintingPolicy Policy(Ctx.getLangOpts());
+                            Child.getDynTypedNode().print(llvm::errs(), Policy);
+                            llvm::errs() << "  is a descendant of:\n";
+                            // Category
+                            if (PossibleAncestor.ST)
+                                llvm::errs() << "  Stmt: ";
+                            else if (PossibleAncestor.D)
+                                llvm::errs() << "  Decl: ";
+                            else if (PossibleAncestor.TL)
+                                llvm::errs() << "  TypeLoc: ";
+                            else
+                                llvm::errs() << "  Unknown: ";
+                            llvm::errs() << "  ";
+                            PossibleAncestor.getDynTypedNode().print(llvm::errs(), Policy);
+                            llvm::errs() << "\n";
+                        }
+                        break;
+                    }
+                }
+            }
+            if (!IsDescendant)
+            {
+                TopLevelRoots.push_back(Child);
+            }
+        }
+        AlignedASTNodes = std::move(TopLevelRoots);
+
+        if (debug)
+        {
+            if (AlignedASTNodes.size() > 1)
+            {
+                llvm::errs() << "Multiple AST nodes aligned with "
+                             << Task.toString();
+            }
+
+            llvm::errs() << "Matched " << AlignedASTNodes.size()
+                         << " top-level AST nodes for "
+                         << Task.toString() << " at "
+                         << Task.getSourceRange(SM).getBegin().printToString(SM)
+                         << ":\n";
+            for (auto &&ASTRoot : AlignedASTNodes)
+            {
+                // Print source range lin:col
+                auto SR = ASTRoot.getSourceRange();
+                auto BeginLoc = SR.getBegin();
+                auto EndLoc = SR.getEnd();
+                auto BeginLine = SM.getSpellingLineNumber(BeginLoc);
+                auto BeginCol = SM.getSpellingColumnNumber(BeginLoc);
+                auto EndLine = SM.getSpellingLineNumber(EndLoc);
+                auto EndCol = SM.getSpellingColumnNumber(EndLoc);
+                llvm::errs() << BeginLine << ":" << BeginCol << "-"
+                             << EndLine << ":" << EndCol;
+
+                // Category
+                if (ASTRoot.ST)
+                    llvm::errs() << "  Stmt: ";
+                else if (ASTRoot.D)
+                    llvm::errs() << "  Decl: ";
+                else if (ASTRoot.TL)
+                    llvm::errs() << "  TypeLoc: ";
+                else
+                    llvm::errs() << "  Unknown: ";
+                llvm::errs() << "  ";
+                clang::PrintingPolicy Policy(Ctx.getLangOpts());
+                ASTRoot.getDynTypedNode().print(llvm::errs(), Policy);
+                llvm::errs() << "\n";
+            }
+        }
+
+        return AlignedASTNodes;
     }
 } // namespace cpp2c

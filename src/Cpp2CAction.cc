@@ -13,16 +13,16 @@ namespace cpp2c
     Cpp2CAction::CreateASTConsumer(clang::CompilerInstance &CI,
                                    llvm::StringRef InFile)
     {
-        return std::make_unique<cpp2c::Cpp2CASTConsumer>(CI, std::move(codeIntervalAnalysisTasks));
+        return std::make_unique<cpp2c::Cpp2CASTConsumer>(CI, std::move(codeRangeAnalysisTasks));
     }
 
     bool Cpp2CAction::ParseArgs(const clang::CompilerInstance &CI,
                                 const std::vector<std::string> &arg)
     {
-        // Allow an optional argument "<code_interval_analysis_tasks_json_path>"
-        static std::string optionName = "code_interval_analysis_tasks_json_path";
-        codeIntervalAnalysisTasks = {};
-        for (int i = 0; i < arg.size(); ++i)
+        // Allow an optional argument "<code_range_analysis_tasks_json_path>"
+        static std::string optionName = "code_range_analysis_tasks_json_path";
+        codeRangeAnalysisTasks = {};
+        for (std::size_t i = 0; i < arg.size(); ++i)
         {
             if (arg[i].find(optionName + "=") != 0)
                 continue; // Not the option we are looking for
@@ -49,7 +49,7 @@ namespace cpp2c
                 nlohmann::json jsonData;
                 file >> jsonData;
                 file.close();
-                codeIntervalAnalysisTasks = jsonData.get<std::vector<Cpp2CASTConsumer::CodeIntervalAnalysisTask>>();
+                codeRangeAnalysisTasks = jsonData.get<std::vector<CodeRangeAnalysisTask>>();
             }
             catch (const std::exception &e)
             {

@@ -399,7 +399,7 @@ namespace cpp2c
     Cpp2CASTConsumer::Cpp2CASTConsumer
     (
         clang::CompilerInstance &CI,
-        std::vector<CodeIntervalAnalysisTask> codeIntervalAnalysisTasks
+        std::vector<CodeRangeAnalysisTask> codeRangeAnalysisTasks
     )
     {
         clang::Preprocessor &PP = CI.getPreprocessor();
@@ -413,7 +413,7 @@ namespace cpp2c
         PP.addPPCallbacks(std::unique_ptr<cpp2c::IncludeCollector>(IC));
         PP.addPPCallbacks(std::unique_ptr<cpp2c::DefinitionInfoCollector>(DC));
 
-        this->codeIntervalAnalysisTasks = std::move(codeIntervalAnalysisTasks);
+        this->codeRangeAnalysisTasks = std::move(codeRangeAnalysisTasks);
     }
 
     struct ArgInfo
@@ -459,7 +459,7 @@ namespace cpp2c
             auto MI = MD->getMacroInfo();
             assert(MI);
 
-            print("Definition", Name, MI->isObjectLike(), Valid, DefLocOrError); /////////////////
+            print("Definition", Name, MI->isObjectLike(), Valid, DefLocOrError);
         }
 
         // Collect declaration ranges
@@ -502,16 +502,16 @@ namespace cpp2c
         }
         debug("Finished checking includes");
 
-        if (IC->IncludeEntriesLocs.size() > 0 && codeIntervalAnalysisTasks.size() > 0)
+        if (IC->IncludeEntriesLocs.size() > 0 && codeRangeAnalysisTasks.size() > 0)
         {
             // Error and exit
-            llvm::errs() << "Code interval analysis tasks should only be used on compilation"
+            llvm::errs() << "Code range analysis tasks should only be used on compilation"
                           << " unit files without includes. Otherwise the line and column"
                           << " numbers are ambiguous. Found "
                           << IC->IncludeEntriesLocs.size()
                           << " includes and "
-                          << codeIntervalAnalysisTasks.size()
-                          << " code interval analysis tasks.";
+                          << codeRangeAnalysisTasks.size()
+                          << " code range analysis tasks.";
             exit(1);
         }
 
@@ -655,7 +655,7 @@ namespace cpp2c
         }
 
         // Print macro expansion information
-        for (auto Exp : MF->Expansions)
+        for (MacroExpansionNode * Exp : MF->Expansions)
         {
             assert(Exp);
             assert(Exp->MI);
@@ -1394,7 +1394,6 @@ namespace cpp2c
                     });
             }
 
-            // Create a JSON object
             ordered_json properties;
 
             #define JSON_ADD_PROPERTY(PROP) { \
@@ -1470,6 +1469,179 @@ namespace cpp2c
                 print("Invocation", properties.dump(4));
             } else {
                 print("Invocation", properties.dump());
+            }
+        }
+
+        for (CodeRangeAnalysisTask & Task : codeRangeAnalysisTasks)
+        {
+            llvm::errs() << "Analyzing code range: " << Task.getSourceRange(SM).printToString(SM) << "\n";
+
+            std::string
+                Location,
+                LocationEnd,
+                ASTKind,
+                ExtraInfo;
+
+            clang::SourceRange Range = Task.getSourceRange(SM);
+
+            if (auto [ok, Loc] = tryGetFullSourceLoc(SM, Range.getBegin()); ok)
+            {
+                Location = Loc;
+            }
+            else continue;
+
+            if (auto [ok, Loc] = tryGetFullSourceLoc(SM, Range.getEnd()); ok)
+            {
+                LocationEnd = Loc;
+            }
+            else continue;
+
+            ExtraInfo = Task.extraInfo;
+
+            std::vector<DeclStmtTypeLoc> ASTRoots = findAlignedASTNodesForCodeRange(Task, Ctx);
+
+            //// Print macro info
+
+            // Exp->dumpMacroInfo(llvm::outs());
+
+            // Exp->dumpASTInfo(llvm::outs(),
+            //                  Ctx.getSourceManager(), Ctx.getLangOpts());
+
+            // Number of AST roots
+            int NumASTRoots = ASTRoots.size();
+            if (NumASTRoots == 0) continue;
+
+            std::vector<const clang::Stmt *> STs;
+            std::vector<const clang::Decl *> Ds;
+
+            if (NumASTRoots == 1)
+            {
+                const DeclStmtTypeLoc & AlignedRoot = ASTRoots[0];
+
+                auto D = AlignedRoot.D;
+                auto ST = AlignedRoot.ST;
+                auto TL = AlignedRoot.TL;
+
+                if (ST)
+                {
+                    ASTKind = "Stmt";
+                    STs.push_back(ST);
+                    if (clang::dyn_cast<clang::Expr>(ST))
+                    {
+                        ASTKind = "Expr";
+                    }
+                }
+                else if (D)
+                {
+                    // Allow only top-level decls
+                    // Also requires parent being a TranslationUnitDecl
+                    clang::DynTypedNode Parent = Ctx.getParents(*D)[0];
+                    if (Parent.get<clang::TranslationUnitDecl>())
+                    {
+                        ASTKind = "Decl";
+                        Ds.push_back(D);
+                    }
+                }
+                else if (TL)
+                {
+                    ASTKind = "TypeLoc";
+                }
+                else assert("Aligns with node that is not a Decl/Stmt/TypeLoc");
+            }
+            else
+            {
+                bool givenUpSTs = false;
+                // Possibly aligned to a span of Stmts
+                std::vector<const clang::Stmt *> PossibleSTs;
+                for (const DeclStmtTypeLoc & Root : ASTRoots)
+                {
+                    if (const clang::Stmt * ST = Root.ST) PossibleSTs.push_back(ST);
+                    else
+                    {
+                        givenUpSTs = true;
+                        break;
+                    }
+                }
+                if (!givenUpSTs)
+                {
+                    assert(PossibleSTs.size() == NumASTRoots);
+                    // All possible STs should share the same parent
+                    clang::DynTypedNode Parent = Ctx.getParents(*PossibleSTs[0])[0];
+                    for (const auto &ST : PossibleSTs)
+                    {
+                        clang::DynTypedNode P = Ctx.getParents(*ST)[0];
+                        if (P != Parent)
+                        {
+                            givenUpSTs = true;
+                            break;
+                        }
+                    }
+                }
+                if (!givenUpSTs)
+                {
+                    ASTKind = "Stmts";
+                    STs = PossibleSTs;
+                }
+
+                bool givenUpDs = false;
+                // Possibly aligned to a span of Decls
+                std::vector<const clang::Decl *> PossibleDs;
+                for (const DeclStmtTypeLoc & Root : ASTRoots)
+                {
+                    if (const clang::Decl * D = Root.D) PossibleDs.push_back(D);
+                    else
+                    {
+                        givenUpDs = true;
+                        break;
+                    }
+                }
+                if (!givenUpDs)
+                {
+                    assert(PossibleDs.size() == NumASTRoots);
+                    // All possible Ds should share the same parent (TranslationUnitDecl)
+                    clang::DynTypedNode Parent = Ctx.getParents(*PossibleDs[0])[0];
+                    // Break if Parent is not a TranslationUnitDecl
+                    if (!Parent.get<clang::TranslationUnitDecl>())
+                    {
+                        givenUpDs = true;
+                    }
+                    for (const auto &D : PossibleDs)
+                    {
+                        clang::DynTypedNode P = Ctx.getParents(*D)[0];
+                        if (P != Parent)
+                        {
+                            givenUpDs = true;
+                            break;
+                        }
+                    }
+                }
+                if (!givenUpDs)
+                {
+                    ASTKind = "Decls";
+                    Ds = PossibleDs;
+                }
+            }
+                
+            ordered_json properties;
+
+            #define JSON_ADD_PROPERTY(PROP) { \
+                json temp; \
+                to_json(temp, PROP); \
+                properties[#PROP] = temp; \
+            }
+
+            JSON_ADD_PROPERTY(Location);
+            JSON_ADD_PROPERTY(LocationEnd);
+            JSON_ADD_PROPERTY(ASTKind);
+            JSON_ADD_PROPERTY(ExtraInfo);
+
+            #undef ADD_PROPERTY
+
+            // Output the JSON object
+            if (Debug) {
+                print("Range", properties.dump(4));
+            } else {
+                print("Range", properties.dump());
             }
         }
 
