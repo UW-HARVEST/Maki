@@ -11,3 +11,4 @@ CMakeFiles/
 /bin/
 /wrappers/
 trace.txt
+evaluation/config.py

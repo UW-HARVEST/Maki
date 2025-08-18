@@ -10,9 +10,17 @@ find_package(LLVM REQUIRED CONFIG)
 if(LLVM_PACKAGE_VERSION VERSION_LESS 17.0)
   message(FATAL_ERROR "Found LLVM ${LLVM_PACKAGE_VERSION}, but need at least LLVM 17.0")
 endif()
-# Warn if greater or equal to 19.0
-if(LLVM_PACKAGE_VERSION VERSION_GREATER_EQUAL 19.0)
-  message(WARNING "Found LLVM ${LLVM_PACKAGE_VERSION}, but cpp2c has not been tested with LLVM 19.0 or greater")
+# Warn if greater or equal to 20.0
+if(LLVM_PACKAGE_VERSION VERSION_GREATER_EQUAL 20.0)
+  message(WARNING "Found LLVM ${LLVM_PACKAGE_VERSION}, but cpp2c has not been tested with LLVM 20.0 or greater")
+endif()
+find_program(CLANG_EXE 
+    NAMES clang-${CLANG_VERSION} clang
+    HINTS "${CT_LLVM_INSTALL_DIR}/bin" "${LLVM_TOOLS_BINARY_DIR}"
+    DOC "Path to clang compiler"
+)
+if(NOT CLANG_EXE)
+    message(FATAL_ERROR "clang executable not found. Check CT_LLVM_INSTALL_DIR or install Clang ${CLANG_VERSION}.")
 endif()
 
 #===============================================================================
@@ -79,6 +87,13 @@ endif()
 # Set the build directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib")
+
+# Generate configuration file for Python scripts
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/evaluation/config.py.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/evaluation/config.py"
+    @ONLY
+)
 
 #===============================================================================
 # 4. ADD SUB-TARGETS

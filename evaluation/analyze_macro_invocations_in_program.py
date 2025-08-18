@@ -10,6 +10,15 @@ from itertools import repeat
 from multiprocessing.pool import ThreadPool
 from typing import List
 
+# Import CMake-generated configuration
+try:
+    from . import config
+    CLANG_EXE = config.CLANG_EXE
+except ImportError:
+    # Fallback to 'clang' if config is not available
+    print("Warning: CMake config not found, falling back to 'clang'", file=sys.stderr)
+    CLANG_EXE = 'clang'
+
 
 class CompileCommand:
     arguments: str
@@ -113,7 +122,7 @@ def cpp2c(cpp2c_so_path: str,
             del args[j]
             break
 
-    args[0] = 'clang'
+    args[0] = CLANG_EXE
     # pass cpp2c plugin shared library file
     args.insert(1, f'-fplugin="{cpp2c_so_path}"')
     # at the very end, specify that we are only doing syntactic analysis
