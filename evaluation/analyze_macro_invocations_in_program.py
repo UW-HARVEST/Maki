@@ -12,7 +12,7 @@ from typing import List
 
 # Import CMake-generated configuration
 try:
-    from . import config
+    import config
     CLANG_EXE = config.CLANG_EXE
 except ImportError:
     # Fallback to 'clang' if config is not available
