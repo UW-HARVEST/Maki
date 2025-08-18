@@ -981,7 +981,8 @@ namespace cpp2c
                 std::map<std::string, std::set<const clang::Stmt *>> StmtsExpandedFromCertainArguments;
                 // Semantic properties of the macro's arguments
                 std::function<bool(const clang::Stmt *, std::string)> ExpandedFromCertainArgument;
-                if (HasAlignedArguments)
+                // if (HasAlignedArguments)
+                if (true) // Hayroll: HasAlignedArguments was taken off for accomodating nested macros
                 {
                     debug("Collecting argument subtrees");
                     for (auto &&Arg : Exp->Arguments)
@@ -1056,7 +1057,9 @@ namespace cpp2c
 
                 std::set<const clang::Stmt *> StmtsExpandedFromBody;
                 // Semantic properties of the macro body
-                if ((ASTKind == "Stmt" || ASTKind == "Stmts") && HasAlignedArguments)
+                // if ((ASTKind == "Stmt" || ASTKind == "Stmts") && HasAlignedArguments)
+                // Hayroll: HasAlignedArguments was taken off for accomodating nested macros
+                if (ASTKind == "Stmt" || ASTKind == "Stmts")
                 {
                     // Replaced all STs with a span of stmts
                     // auto ST = Exp->AlignedRoot->ST;
@@ -1500,21 +1503,16 @@ namespace cpp2c
 
             std::vector<DeclStmtTypeLoc> ASTRoots = findAlignedASTNodesForCodeRange(Task, Ctx);
 
-            //// Print macro info
-
-            // Exp->dumpMacroInfo(llvm::outs());
-
-            // Exp->dumpASTInfo(llvm::outs(),
-            //                  Ctx.getSourceManager(), Ctx.getLangOpts());
-
-            // Number of AST roots
-            int NumASTRoots = ASTRoots.size();
-            if (NumASTRoots == 0) continue;
-
             std::vector<const clang::Stmt *> STs;
             std::vector<const clang::Decl *> Ds;
 
-            if (NumASTRoots == 1)
+            // Number of AST roots
+            int NumASTRoots = ASTRoots.size();
+            if (NumASTRoots == 0)
+            {
+                ASTKind = "";
+            }
+            else if (NumASTRoots == 1)
             {
                 const DeclStmtTypeLoc & AlignedRoot = ASTRoots[0];
 
