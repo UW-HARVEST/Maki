@@ -13,15 +13,6 @@ endif()
 if(LLVM_PACKAGE_VERSION VERSION_GREATER_EQUAL 20.0)
 message(WARNING "Found LLVM ${LLVM_PACKAGE_VERSION}, but cpp2c has not been tested with LLVM 20.0 or greater")
 endif()
-set(CLANG_VERSION "${LLVM_VERSION_MAJOR}")
-find_program(CLANG_EXE 
-    NAMES clang-${CLANG_VERSION} clang
-    HINTS "${CT_LLVM_INSTALL_DIR}/bin" "${LLVM_TOOLS_BINARY_DIR}"
-    DOC "Path to clang compiler"
-)
-if(NOT CLANG_EXE)
-    message(FATAL_ERROR "clang executable not found. Check CT_LLVM_INSTALL_DIR or install Clang ${CLANG_VERSION}.")
-endif()
 
 #===============================================================================
 # 2. LOAD CLANG CONFIGURATION
@@ -40,13 +31,19 @@ if(NOT "${CLANG_VERSION}" VERSION_EQUAL "${LLVM_VERSION_MAJOR}")
   message(FATAL_ERROR "Found LLVM ${LLVM_VERSION_MAJOR}, but need LLVM ${CLANG_VERSION}")
 endif()
 
+set(CLANG_EXE "${LLVM_TOOLS_BINARY_DIR}/clang-${CLANG_VERSION}")
+if(NOT EXISTS "${CLANG_EXE}")
+  set(CLANG_EXE "${LLVM_TOOLS_BINARY_DIR}/clang")
+endif()
+
 set(CLANG_C_COMPILER "clang-${CLANG_VERSION}")
+
 message(STATUS "Found Clang ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using ClangConfig.cmake in: ${CT_LLVM_INSTALL_DIR}")
 
-
 message("CLANG STATUS:
   Includes (clang)    ${CLANG_INCLUDE_DIRS}
+  Binary (clang)      ${CLANG_EXE}
   Includes (llvm)     ${LLVM_INCLUDE_DIRS}"
 )
 
