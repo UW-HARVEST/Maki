@@ -12,3 +12,7 @@ CMakeFiles/
 /wrappers/
 trace.txt
 evaluation/config.py
+/note
+/tests/analyze-tests.py
+/tests/compile_commands.json
+/test*.*
