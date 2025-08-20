@@ -8,12 +8,12 @@ enable_testing()
 #===============================================================================
 find_package(LLVM REQUIRED CONFIG)
 if(LLVM_PACKAGE_VERSION VERSION_LESS 17.0)
-  message(FATAL_ERROR "Found LLVM ${LLVM_PACKAGE_VERSION}, but need at least LLVM 17.0")
+message(FATAL_ERROR "Found LLVM ${LLVM_PACKAGE_VERSION}, but need at least LLVM 17.0")
 endif()
-# Warn if greater or equal to 20.0
 if(LLVM_PACKAGE_VERSION VERSION_GREATER_EQUAL 20.0)
-  message(WARNING "Found LLVM ${LLVM_PACKAGE_VERSION}, but cpp2c has not been tested with LLVM 20.0 or greater")
+message(WARNING "Found LLVM ${LLVM_PACKAGE_VERSION}, but cpp2c has not been tested with LLVM 20.0 or greater")
 endif()
+set(CLANG_VERSION "${LLVM_VERSION_MAJOR}")
 find_program(CLANG_EXE 
     NAMES clang-${CLANG_VERSION} clang
     HINTS "${CT_LLVM_INSTALL_DIR}/bin" "${LLVM_TOOLS_BINARY_DIR}"
