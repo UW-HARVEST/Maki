@@ -25,7 +25,7 @@ list(APPEND CMAKE_PREFIX_PATH "${CT_LLVM_INSTALL_DIR}/lib/cmake/clang-${CLANG_VE
 
 set(CLANG_EXE "${LLVM_TOOLS_BINARY_DIR}/clang-${CLANG_VERSION}")
 if(NOT EXISTS "${CLANG_EXE}")
-  set(CLANG_EXE "${LLVM_TOOLS_BINARY_DIR}/clang")
+  message(ERROR "Clang executable not found at ${CLANG_EXE}")
 endif()
 
 set(CLANG_C_COMPILER "clang-${CLANG_VERSION}")
