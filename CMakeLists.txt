@@ -18,18 +18,10 @@ endif()
 # 2. LOAD CLANG CONFIGURATION
 #    For more: http://llvm.org/docs/CMake.html#embedding-llvm-in-your-project
 #===============================================================================
+find_package(Clang REQUIRED CONFIG)
 set(CLANG_VERSION "${LLVM_VERSION_MAJOR}")
 list(APPEND CMAKE_PREFIX_PATH "${CT_LLVM_INSTALL_DIR}/lib/cmake/llvm-${CLANG_VERSION}/")
 list(APPEND CMAKE_PREFIX_PATH "${CT_LLVM_INSTALL_DIR}/lib/cmake/clang-${CLANG_VERSION}/")
-
-find_package(Clang REQUIRED CONFIG)
-
-# Sanity check. As Clang does not expose e.g. `CLANG_VERSION_MAJOR` through
-# AddClang.cmake, we have to use LLVM_VERSION_MAJOR instead.
-# TODO: Revisit when next version is released.
-if(NOT "${CLANG_VERSION}" VERSION_EQUAL "${LLVM_VERSION_MAJOR}")
-  message(FATAL_ERROR "Found LLVM ${LLVM_VERSION_MAJOR}, but need LLVM ${CLANG_VERSION}")
-endif()
 
 set(CLANG_EXE "${LLVM_TOOLS_BINARY_DIR}/clang-${CLANG_VERSION}")
 if(NOT EXISTS "${CLANG_EXE}")
