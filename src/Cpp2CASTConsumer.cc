@@ -1483,7 +1483,9 @@ namespace cpp2c
                 Location,
                 LocationEnd,
                 ASTKind,
-                ExtraInfo;
+                Premise;
+
+            bool IsPlaceholder = false;
 
             clang::SourceRange Range = Task.getSourceRange(SM);
 
@@ -1499,7 +1501,7 @@ namespace cpp2c
             }
             else continue;
 
-            ExtraInfo = Task.extraInfo;
+            Premise = Task.premise;
 
             std::vector<DeclStmtTypeLoc> ASTRoots = findAlignedASTNodesForCodeRange(Task, Ctx);
 
@@ -1631,7 +1633,8 @@ namespace cpp2c
             JSON_ADD_PROPERTY(Location);
             JSON_ADD_PROPERTY(LocationEnd);
             JSON_ADD_PROPERTY(ASTKind);
-            JSON_ADD_PROPERTY(ExtraInfo);
+            JSON_ADD_PROPERTY(IsPlaceholder);
+            JSON_ADD_PROPERTY(Premise);
 
             #undef ADD_PROPERTY
 

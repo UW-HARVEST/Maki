@@ -18,9 +18,9 @@ namespace cpp2c
         int beginCol;
         int endLine;
         int endCol;
-        std::string extraInfo;
+        std::string premise;
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(CodeRangeAnalysisTask, name, beginLine, beginCol, endLine, endCol, extraInfo)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(CodeRangeAnalysisTask, name, beginLine, beginCol, endLine, endCol, premise)
 
         clang::SourceRange getSourceRange(clang::SourceManager & SM) const
         {
@@ -35,7 +35,7 @@ namespace cpp2c
             oss << "CodeRangeAnalysisTask: " << name << "\n"
                 << "  Begin: " << beginLine << ":" << beginCol << "\n"
                 << "  End: " << endLine << ":" << endCol << "\n"
-                << "  Extra Info: " << extraInfo << "\n";
+                << "  Extra Info: " << premise << "\n";
             return oss.str();
         }
     };
