@@ -689,66 +689,6 @@ namespace cpp2c
             return false;
         }
 
-        // Check that this node has not been matched before
-        bool foundNodeBefore = false;
-        if (DSTL.ST && MatchedStmts.find(DSTL.ST) != MatchedStmts.end())
-            foundNodeBefore = true;
-        else if (DSTL.D && MatchedDecls.find(DSTL.D) != MatchedDecls.end())
-            foundNodeBefore = true;
-        else if (DSTL.TL &&
-                 MatchedTypeLocs.find(DSTL.TL) != MatchedTypeLocs.end())
-            foundNodeBefore = true;
-        if (foundNodeBefore)
-        {
-            if (debug)
-            {
-                llvm::errs() << "Found node before\n";
-                if (DSTL.ST)
-                    DSTL.ST->dumpColor();
-                else if (DSTL.D)
-                    DSTL.D->dumpColor();
-                else if (DSTL.TL)
-                {
-                    auto QT = DSTL.TL->getType();
-                    if (!QT.isNull())
-                        QT.dump();
-                    else
-                        llvm::errs() << "<Null type>\n";
-                }
-            }
-            return false;
-        }
-
-        // Check that this node is not a proper subtree of an aligned node
-        // that we already found.
-        bool foundParentBefore = false;
-        for (auto P : Ctx->getParents(Node))
-        {
-            if (auto PST = P.template get<clang::Stmt>())
-            {
-                if (MatchedStmts.find(PST) != MatchedStmts.end())
-                    foundParentBefore = true;
-            }
-            else if (auto DP = P.template get<clang::Decl>())
-            {
-                if (MatchedDecls.find(DP) != MatchedDecls.end())
-                    foundParentBefore = true;
-            }
-            else if (auto DTL = P.template get<clang::TypeLoc>())
-            {
-                if (MatchedTypeLocs.find(DTL) != MatchedTypeLocs.end())
-                    foundParentBefore = true;
-            }
-        }
-        if (foundParentBefore)
-        {
-            if (debug)
-            {
-                llvm::errs() << "Found parent before\n";
-            }
-            return false;
-        }
-
         // Store this node and its children in the set of aligned subtrees
         // we've found
         storeChildren(DSTL, MatchedStmts, MatchedDecls, MatchedTypeLocs);
