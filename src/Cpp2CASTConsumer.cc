@@ -64,6 +64,29 @@ namespace cpp2c
         return E;
     }
 
+    // Determine whether an expression is used as a standalone statement
+    // (e.g., "x++;" or "a = b;") rather than as an operand (e.g., return x;).
+    static bool isExprUsedAsStmt(const clang::Expr* E, clang::ASTContext& Ctx)
+    {
+        if (!E) return false;
+        auto parents = Ctx.getParents(*E);
+        if (parents.empty()) return false;
+
+        const clang::Stmt* P = parents[0].get<clang::Stmt>();
+        // Jump out of possible ExprWithCleanups
+        while (P && llvm::isa<clang::ExprWithCleanups>(P))
+        {
+            auto pp = Ctx.getParents(*P);
+            if (pp.empty()) break;
+            P = pp[0].get<clang::Stmt>();
+        }
+        if (!P) return false;
+
+        return llvm::isa<clang::CompoundStmt>(P)
+            || llvm::isa<clang::LabelStmt>(P)
+            || llvm::isa<clang::AttributedStmt>(P);
+    }
+
     // Returns true if LHS is a subtree of RHS via BFS
     bool inTree(const clang::Stmt *LHS, const clang::Stmt *RHS)
     {
@@ -851,7 +874,16 @@ namespace cpp2c
                     if (ST)
                     {
                         debug("Aligns with a stmt");
-                        ASTKind = "Stmt";
+                        // Distinguish expression-statements from pure expressions
+                        if (auto *E = clang::dyn_cast<clang::Expr>(ST))
+                        {
+                            bool stmtLike = isExprUsedAsStmt(E, Ctx);
+                            ASTKind = stmtLike ? "Stmt" : "Expr";
+                        }
+                        else
+                        {
+                            ASTKind = "Stmt";
+                        }
                         STs.push_back(ST);
                     }
                     else if (D)
@@ -1059,7 +1091,7 @@ namespace cpp2c
                 // Semantic properties of the macro body
                 // if ((ASTKind == "Stmt" || ASTKind == "Stmts") && HasAlignedArguments)
                 // Hayroll: HasAlignedArguments was taken off for accomodating nested macros
-                if (ASTKind == "Stmt" || ASTKind == "Stmts")
+                if (ASTKind == "Stmt" || ASTKind == "Stmts" || ASTKind == "Expr")
                 {
                     // Replaced all STs with a span of stmts
                     // auto ST = Exp->AlignedRoot->ST;
@@ -1233,10 +1265,9 @@ namespace cpp2c
 
                     // Body type information
                     TypeSignature = "void";
-                    if (ASTKind == "Stmt" && clang::dyn_cast<clang::Expr>(Exp->AlignedRoot->ST))
+                    if (ASTKind == "Expr")
                     {
                         auto E = clang::dyn_cast<clang::Expr>(Exp->AlignedRoot->ST);
-                        ASTKind = "Expr";
 
                         // Type information about the entire expansion
                         auto QT = E->getType();
@@ -1508,6 +1539,24 @@ namespace cpp2c
             std::vector<const clang::Stmt *> STs;
             std::vector<const clang::Decl *> Ds;
 
+            // // Print how many AST roots were found for which code range
+            // llvm::errs() << "  Found " << ASTRoots.size() << " aligned AST roots for code range " 
+            //              << Range.printToString(SM) << "\n";
+            // // Print each Root
+            // for (const DeclStmtTypeLoc & Root : ASTRoots)
+            // {
+            //     if (Root.ST)
+            //     {
+            //         llvm::errs() << "    Stmt: " << Root.ST->getStmtClassName() << " at "
+            //                      << Root.ST->getBeginLoc().printToString(SM) << "\n";
+            //     }
+            //     else if (Root.D)
+            //     {
+            //         llvm::errs() << "    Decl: " << Root.D->getDeclKindName() << " at "
+            //                      << Root.D->getBeginLoc().printToString(SM) << "\n";
+            //     }
+            // }
+
             // Number of AST roots
             int NumASTRoots = ASTRoots.size();
             if (NumASTRoots == 0)
@@ -1524,12 +1573,17 @@ namespace cpp2c
 
                 if (ST)
                 {
-                    ASTKind = "Stmt";
-                    STs.push_back(ST);
-                    if (clang::dyn_cast<clang::Expr>(ST))
+                    // Distinguish expression-statements from pure expressions
+                    if (auto *E = clang::dyn_cast<clang::Expr>(ST))
                     {
-                        ASTKind = "Expr";
+                        bool stmtLike = isExprUsedAsStmt(E, Ctx);
+                        ASTKind = stmtLike ? "Stmt" : "Expr";
                     }
+                    else
+                    {
+                        ASTKind = "Stmt";
+                    }
+                    STs.push_back(ST);
                 }
                 else if (D)
                 {
@@ -1579,8 +1633,28 @@ namespace cpp2c
                 }
                 if (!givenUpSTs)
                 {
-                    ASTKind = "Stmts";
-                    STs = PossibleSTs;
+                    // Ensure each candidate is stmt-like (not a pure expression)
+                    bool allAreStmtLike = true;
+                    for (const auto *S : PossibleSTs)
+                    {
+                        if (auto *E = clang::dyn_cast<clang::Expr>(S))
+                        {
+                            if (!isExprUsedAsStmt(E, Ctx))
+                            {
+                                allAreStmtLike = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (allAreStmtLike)
+                    {
+                        ASTKind = "Stmts";
+                        STs = PossibleSTs;
+                    }
+                    else
+                    {
+                        givenUpSTs = true;
+                    }
                 }
 
                 bool givenUpDs = false;
@@ -1600,7 +1674,6 @@ namespace cpp2c
                     assert(PossibleDs.size() == NumASTRoots);
                     // All possible Ds should share the same parent (TranslationUnitDecl)
                     clang::DynTypedNode Parent = Ctx.getParents(*PossibleDs[0])[0];
-                    // Break if Parent is not a TranslationUnitDecl
                     if (!Parent.get<clang::TranslationUnitDecl>())
                     {
                         givenUpDs = true;
