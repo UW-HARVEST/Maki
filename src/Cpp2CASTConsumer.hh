@@ -9,6 +9,8 @@
 #include "clang/Frontend/ASTConsumers.h"
 #include "clang/Frontend/CompilerInstance.h"
 
+#include <sstream>
+
 namespace cpp2c
 {
     struct CodeRangeAnalysisTask
