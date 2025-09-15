@@ -1514,6 +1514,7 @@ namespace cpp2c
                 Location,
                 LocationEnd,
                 ASTKind,
+                ParentLocation,
                 Premise;
 
             bool IsPlaceholder = false;
@@ -1562,6 +1563,7 @@ namespace cpp2c
             if (NumASTRoots == 0)
             {
                 ASTKind = "";
+                ParentLocation = "";
             }
             else if (NumASTRoots == 1)
             {
@@ -1584,6 +1586,25 @@ namespace cpp2c
                         ASTKind = "Stmt";
                     }
                     STs.push_back(ST);
+
+                    // Parent location of this node
+                    auto Parents = Ctx.getParents(*ST);
+                    if (!Parents.empty())
+                    {
+                        clang::SourceLocation PL;
+                        if (auto PS = Parents[0].get<clang::Stmt>())
+                            PL = SM.getFileLoc(PS->getBeginLoc());
+                        else if (auto PD = Parents[0].get<clang::Decl>())
+                            PL = SM.getFileLoc(PD->getBeginLoc());
+                        if (PL.isValid())
+                            ParentLocation = tryGetFullSourceLoc(SM, PL).second;
+                        else
+                            ParentLocation = "";
+                    }
+                    else
+                    {
+                        ParentLocation = "";
+                    }
                 }
                 else if (D)
                 {
@@ -1594,11 +1615,25 @@ namespace cpp2c
                     {
                         ASTKind = "Decl";
                         Ds.push_back(D);
+
+                        // Parent location (TranslationUnitDecl)
+                        clang::SourceLocation PL;
+                        if (auto TU = Parent.get<clang::TranslationUnitDecl>())
+                            PL = SM.getFileLoc(TU->getBeginLoc());
+                        if (PL.isValid())
+                            ParentLocation = tryGetFullSourceLoc(SM, PL).second;
+                        else
+                            ParentLocation = "";
+                    }
+                    else
+                    {
+                        ParentLocation = "";
                     }
                 }
                 else if (TL)
                 {
                     ASTKind = "TypeLoc";
+                    ParentLocation = "";
                 }
                 else assert("Aligns with node that is not a Decl/Stmt/TypeLoc");
             }
@@ -1650,6 +1685,18 @@ namespace cpp2c
                     {
                         ASTKind = "Stmts";
                         STs = PossibleSTs;
+
+                        // Common parent location
+                        auto Parent = Ctx.getParents(*STs[0])[0];
+                        clang::SourceLocation PL;
+                        if (auto PS = Parent.get<clang::Stmt>())
+                            PL = SM.getFileLoc(PS->getBeginLoc());
+                        else if (auto PD = Parent.get<clang::Decl>())
+                            PL = SM.getFileLoc(PD->getBeginLoc());
+                        if (PL.isValid())
+                            ParentLocation = tryGetFullSourceLoc(SM, PL).second;
+                        else
+                            ParentLocation = "";
                     }
                     else
                     {
@@ -1692,6 +1739,18 @@ namespace cpp2c
                 {
                     ASTKind = "Decls";
                     Ds = PossibleDs;
+
+                    // Common parent location (likely TU)
+                    auto Parent = Ctx.getParents(*Ds[0])[0];
+                    clang::SourceLocation PL;
+                    if (auto TU = Parent.get<clang::TranslationUnitDecl>())
+                        PL = SM.getFileLoc(TU->getBeginLoc());
+                    else if (auto PD = Parent.get<clang::Decl>())
+                        PL = SM.getFileLoc(PD->getBeginLoc());
+                    if (PL.isValid())
+                        ParentLocation = tryGetFullSourceLoc(SM, PL).second;
+                    else
+                        ParentLocation = "";
                 }
             }
                 
@@ -1706,6 +1765,7 @@ namespace cpp2c
             JSON_ADD_PROPERTY(Location);
             JSON_ADD_PROPERTY(LocationEnd);
             JSON_ADD_PROPERTY(ASTKind);
+            JSON_ADD_PROPERTY(ParentLocation);
             JSON_ADD_PROPERTY(IsPlaceholder);
             JSON_ADD_PROPERTY(Premise);
 
