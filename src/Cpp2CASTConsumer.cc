@@ -1518,6 +1518,7 @@ namespace cpp2c
                 Premise;
 
             bool IsPlaceholder = false;
+            bool IsLValue = false; // Only meaningful when ASTKind == "Expr"
 
             clang::SourceRange Range = Task.getSourceRange(SM);
 
@@ -1580,6 +1581,11 @@ namespace cpp2c
                     {
                         bool stmtLike = isExprUsedAsStmt(E, Ctx);
                         ASTKind = stmtLike ? "Stmt" : "Expr";
+                        // Only meaningful for pure expressions (not used as a statement)
+                        if (!stmtLike)
+                        {
+                            IsLValue = E->isLValue();
+                        }
                     }
                     else
                     {
@@ -1765,6 +1771,7 @@ namespace cpp2c
             JSON_ADD_PROPERTY(Location);
             JSON_ADD_PROPERTY(LocationEnd);
             JSON_ADD_PROPERTY(ASTKind);
+            JSON_ADD_PROPERTY(IsLValue);
             JSON_ADD_PROPERTY(ParentLocation);
             JSON_ADD_PROPERTY(IsPlaceholder);
             JSON_ADD_PROPERTY(Premise);
