@@ -13,14 +13,13 @@ namespace cpp2c
 {
     struct CodeRangeAnalysisTask
     {
-        std::string name;
         int beginLine;
         int beginCol;
         int endLine;
         int endCol;
-        std::string premise;
+        nlohmann::json extraInfo;
 
-        NLOHMANN_DEFINE_TYPE_INTRUSIVE(CodeRangeAnalysisTask, name, beginLine, beginCol, endLine, endCol, premise)
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(CodeRangeAnalysisTask, beginLine, beginCol, endLine, endCol, extraInfo)
 
         clang::SourceRange getSourceRange(clang::SourceManager & SM) const
         {
@@ -32,10 +31,10 @@ namespace cpp2c
         std::string toString() const
         {
             std::ostringstream oss;
-            oss << "CodeRangeAnalysisTask: " << name << "\n"
+            oss << "CodeRangeAnalysisTask: "
                 << "  Begin: " << beginLine << ":" << beginCol << "\n"
                 << "  End: " << endLine << ":" << endCol << "\n"
-                << "  Extra Info: " << premise << "\n";
+                << "  Extra Info: " << extraInfo.dump(4) << "\n";
             return oss.str();
         }
     };
