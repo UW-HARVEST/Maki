@@ -1310,8 +1310,8 @@ namespace cpp2c
                     {
                         Args.push_back(ArgInfo {
                             .Name = Arg.Name.str(),
-                            .ASTKind = "<Null>",
-                            .Type = "<Null>",
+                            .ASTKind = "",
+                            .Type = "",
                             .ActualArgLocBegin = InvocationFilename + ":" + tryGetLineColumn(SM, Arg.TokensWithTail.front().getLocation()).second,
                             .ActualArgLocEnd = InvocationFilename + ":" + tryGetLineColumn(SM, Arg.TokensWithTail.back().getEndLoc()).second
                         });
@@ -1335,7 +1335,7 @@ namespace cpp2c
                         if (!E)
                             continue;
 
-                        std::string ArgTypeStr = "<Null>";
+                        std::string ArgTypeStr = "";
 
                         // Type information about arguments
                         auto QT = E->getType();
