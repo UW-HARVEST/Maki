@@ -60,6 +60,12 @@ namespace cpp2c
         {
             if (Tok.is(clang::tok::eof))
                 break;
+            // Enforce half-open [A, B): if current token starts at or beyond B, stop.
+            clang::SourceLocation TokLoc = Tok.getLocation();
+            auto [TokFileID, TokOff] = SM.getDecomposedLoc(useFileLoc ? SM.getFileLoc(TokLoc)
+                                                                      : SM.getSpellingLoc(TokLoc));
+            if (TokFileID != FileIDA || TokOff >= OffsetB)
+                break;
             if (Tok.is(clang::tok::comment))
             {
                 if (debug)
@@ -79,6 +85,7 @@ namespace cpp2c
                     A.dump(SM);
                     B.dump(SM);
                     llvm::errs() << "Token: " << Tok.getName() << "\n";
+                    TokLoc.dump(SM);
                 }
                 return true;
             }
