@@ -635,7 +635,7 @@ namespace cpp2c
             clang::SourceLocation MaxEndEndTok = clang::Lexer::getLocForEndOfToken(MaxEnd, 0, SM, LO);
             // Swallow a single trailing semicolon immediately following the
             // top-level node(s), if it exists within the range's end.
-            // swallowSingleTrailingSemicolon(MaxEndEndTok, RangeEEndTok, Ctx);
+            swallowSingleTrailingSemicolon(MaxEndEndTok, RangeEEndTok, Ctx);
 
             bool leadingExtra = hasNonCommentTokensBetween(RangeB, MinBegin, Ctx, /*useFileLoc=*/true);
             bool trailingExtra = hasNonCommentTokensBetween(MaxEndEndTok, RangeEEndTok, Ctx, /*useFileLoc=*/true);
