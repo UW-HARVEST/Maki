@@ -221,7 +221,8 @@ namespace cpp2c
             MatchFinder Finder;
             ExpansionMatchHandler Handler;
             auto Matcher = stmt(unless(anyOf(implicitCastExpr(),
-                                             implicitValueInitExpr())),
+                                             implicitValueInitExpr(),
+                                             designatedInitExpr())),
                                 alignsWithExpansion(&Ctx, Exp))
                                .bind("root");
             Finder.addMatcher(Matcher, &Handler);
@@ -508,7 +509,8 @@ namespace cpp2c
             MatchFinder Finder;
             ExpansionMatchHandler Handler;
             auto Matcher = stmt(unless(anyOf(implicitCastExpr(),
-                                             implicitValueInitExpr())),
+                                             implicitValueInitExpr(),
+                                             designatedInitExpr())),
                                 alignsWithRange(&Ctx, Range))
                                .bind("root");
             Finder.addMatcher(Matcher, &Handler);
