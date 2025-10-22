@@ -728,6 +728,7 @@ namespace cpp2c
                 IsInvokedInMacroArgument = false,
                 IsNamePresentInCPPConditional = false,
                 IsExpansionICE = false,
+                IsInvokedInStmtBlock = false,
 
                 IsExpansionTypeNull = false,
                 IsExpansionTypeAnonymous = false,
@@ -997,6 +998,32 @@ namespace cpp2c
                         ASTKind = "Decls";
                         Ds = PossibleDs;
                     }
+                }
+
+                if (ASTKind == "Stmt" && !STs.empty())
+                {
+                    // Walk up the AST to see whether the statement lives inside a compound block
+                    const clang::Stmt *InvokedStmt = STs.front();
+                    const clang::Stmt *ParentStmt = nullptr;
+                    auto Parents = Ctx.getParents(*InvokedStmt);
+                    if (!Parents.empty())
+                        ParentStmt = Parents[0].get<clang::Stmt>();
+
+                    while (ParentStmt &&
+                           (llvm::isa<clang::ExprWithCleanups>(ParentStmt) ||
+                            llvm::isa<clang::AttributedStmt>(ParentStmt) ||
+                            llvm::isa<clang::LabelStmt>(ParentStmt)))
+                    {
+                        auto NextParents = Ctx.getParents(*ParentStmt);
+                        if (NextParents.empty())
+                        {
+                            ParentStmt = nullptr;
+                            break;
+                        }
+                        ParentStmt = NextParents[0].get<clang::Stmt>();
+                    }
+
+                    IsInvokedInStmtBlock = ParentStmt && llvm::isa<clang::CompoundStmt>(ParentStmt);
                 }
 
                 // Check that the number of AST nodes aligned with each argument
@@ -1477,6 +1504,7 @@ namespace cpp2c
             JSON_ADD_PROPERTY(IsInvokedInMacroArgument);
             JSON_ADD_PROPERTY(IsNamePresentInCPPConditional);
             JSON_ADD_PROPERTY(IsExpansionICE);
+            JSON_ADD_PROPERTY(IsInvokedInStmtBlock);
             JSON_ADD_PROPERTY(IsExpansionTypeNull);
             JSON_ADD_PROPERTY(IsExpansionTypeAnonymous);
             JSON_ADD_PROPERTY(IsExpansionTypeLocalType);
