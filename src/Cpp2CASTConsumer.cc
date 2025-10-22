@@ -825,8 +825,8 @@ namespace cpp2c
             if (IsInvocationLocationValid)
             {
                 InvocationLocation = Res.second;
-                int lastTokenLength = 1; // )
-                if (Exp->Arguments.empty()) lastTokenLength = Exp->Name.size();
+                int lastTokenLength = 1; // ), for function-like macros
+                if (Exp->MI->isObjectLike()) lastTokenLength = Exp->Name.size();
                 auto ResEnd = tryGetFullSourceLoc(SM, Exp->SpellingRange.getEnd().getLocWithOffset(lastTokenLength));
                 InvocationLocationEnd = ResEnd.second;
                 InvocationFilename = tryGetFilename(SM, Exp->SpellingRange.getBegin()).second;
