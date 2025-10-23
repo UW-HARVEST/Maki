@@ -721,7 +721,7 @@ namespace cpp2c
                 DoesAnyArgumentHaveSideEffects = false,
                 DoesAnyArgumentContainDeclRefExpr = false,
 
-                IsHygienic = false,
+                IsHygienic = true, // Assume hygienic until proven otherwise
                 IsDefinitionLocationValid = false,
                 IsInvocationLocationValid = false,
                 IsObjectLike = false,
